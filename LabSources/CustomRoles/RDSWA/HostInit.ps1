@@ -1,0 +1,1 @@
+& $PSScriptRoot\RDSWA.ps1
