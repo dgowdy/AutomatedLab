@@ -36,22 +36,12 @@ switch ($IsAdvancedRDSDeployment)
         switch ($Roles)
         {
             'RDSAD'
-            {
-                $ADModulePath = Join-Path $PSScriptRoot -ChildPath 'RDSAD'
-                Import-Module $ADModulePath\RDSAD.psm1
+            {                
+                $script = Get-Command -Name $PSScriptRoot\InstallRDSAD.ps1
 
-                switch ($ConnectionBrokerHighAvailabilty)
-                {
-                    'Yes'
-                    {
-                        New-ADStructure -RDSStructureName $RDSStructureName -ConnectionBrokerHighAvailabilty $true
-                    }
+		$param = Sync-Parameter -Command $script -Parameters $PSBoundParameters
 
-                    'No'
-                    {
-                        New-ADStructure -RDSStructureName $RDSStructureName -ConnectionBrokerHighAvailabilty $false
-                    }
-                }
+		& $PSScriptRoot\InstallRDSAD.ps1 @param
             }
 
             'RDSCB'
