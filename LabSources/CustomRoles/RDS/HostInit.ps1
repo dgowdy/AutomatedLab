@@ -1,29 +1,29 @@
 param
 (
-    [Parameter(ParameterSetName = 'AdvancedRDSDeployment')]
+    [Parameter(Mandatory,ParameterSetName = 'AdvancedRDSDeployment')]
     [String]
     [ValidateSet('Yes', 'No')]
     $IsAdvancedRDSDeployment,
     
-    [Parameter(ParameterSetName = 'AdvancedRDSDeployment')]
+    [Parameter(Mandatory,ParameterSetName = 'AdvancedRDSDeployment')]
     [String]
     [ValidateSet('Yes', 'No')]
     $ConnectionBrokerHighAvailabilty,
 
-    [Parameter(ParameterSetName = 'AdvancedRDSDeployment')]
+    [Parameter(Mandatory,ParameterSetName = 'AdvancedRDSDeployment')]
     [String]
     $RDSStructureName,
 
-    [Parameter(ParameterSetName = 'AdvancedRDSDeployment')]
+    [Parameter(Mandatory,ParameterSetName = 'AdvancedRDSDeployment')]
     [String]
     $ADServer,
 
-    [Parameter(ParameterSetName = 'AdvancedRDSDeployment')]
+    [Parameter(Mandatory,ParameterSetName = 'AdvancedRDSDeployment')]
     [String]
     [ValidateSet('Yes', 'No')]
     $IsSessionBasedDesktop,
 
-    [Parameter(ParameterSetName = 'AdvancedRDSDeployment')]
+    [Parameter(Mandatory,ParameterSetName = 'AdvancedRDSDeployment')]
     [String[]]
     [ValidateSet('RDSAD', 'RDSCB', 'RDSGW', 'RDSLIC', 'RDSSH', 'RDSWA')]
     $Roles
