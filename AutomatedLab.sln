@@ -24,8 +24,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "LabSources", "LabSources", 
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tools", "Tools", "{BF2C3317-327C-4552-8C6B-18A07307D977}"
 	ProjectSection(SolutionItems) = preProject
-		LabSources\Tools\_The tools folder gets copied into each VM to a directory named Tools in root of C drive.txt = LabSources\Tools\_The tools folder gets copied into each VM to a directory named Tools in root of C drive.txt
 		LabSources\Tools\oscdimg.exe = LabSources\Tools\oscdimg.exe
+		LabSources\Tools\README.md = LabSources\Tools\README.md
 		LabSources\Tools\RepAll.bat = LabSources\Tools\RepAll.bat
 		LabSources\Tools\WinSAT.exe = LabSources\Tools\WinSAT.exe
 		LabSources\Tools\WinSATAPI.dll = LabSources\Tools\WinSATAPI.dll
@@ -110,17 +110,17 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "AutomatedLab", "AutomatedLa
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ISOs", "ISOs", "{02DDCCD0-7EAA-450B-AE8A-67D54E8EF30C}"
 	ProjectSection(SolutionItems) = preProject
-		LabSources\ISOs\_Put all ISO images in here.txt = LabSources\ISOs\_Put all ISO images in here.txt
+		LabSources\ISOs\README.md = LabSources\ISOs\README.md
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SoftwarePackages", "SoftwarePackages", "{51120906-7BD4-4855-912D-56DBF8812578}"
 	ProjectSection(SolutionItems) = preProject
-		LabSources\SoftwarePackages\_Put all software you want to install to the VMs here.txt = LabSources\SoftwarePackages\_Put all software you want to install to the VMs here.txt
+		LabSources\SoftwarePackages\README.md = LabSources\SoftwarePackages\README.md
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "PostInstallationActivities", "PostInstallationActivities", "{1130E19B-F91C-493B-AC50-8B7862716FB6}"
 	ProjectSection(SolutionItems) = preProject
-		LabSources\PostInstallationActivities\_This is the place for all scripts to customize the roles after installation.txt = LabSources\PostInstallationActivities\_This is the place for all scripts to customize the roles after installation.txt
+		LabSources\PostInstallationActivities\README.md = LabSources\PostInstallationActivities\README.md
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "DnsAndTrustSetup", "DnsAndTrustSetup", "{06858CF6-B9DA-4FB1-8188-624E6D63F824}"
@@ -157,12 +157,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		automatedlab.psdeploy.ps1 = automatedlab.psdeploy.ps1
 		Build.ps1 = Build.ps1
 		CHANGELOG.md = CHANGELOG.md
-		Changes.txt = Changes.txt
 		CONTRIBUTING.md = CONTRIBUTING.md
 		LICENSE = LICENSE
 		psake.ps1 = psake.ps1
 		README.md = README.md
-		Temp.txt = Temp.txt
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tools", "Tools", "{35796C10-DDB9-4E04-A2CD-FE3D00A0E361}"
@@ -237,19 +235,23 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Scenarios", "Scenarios", "{
 		LabSources\SampleScripts\Scenarios\DSC Pull Scenario 1 (Pull Configuration).ps1 = LabSources\SampleScripts\Scenarios\DSC Pull Scenario 1 (Pull Configuration).ps1
 		LabSources\SampleScripts\Scenarios\DSC Pull Scenario 1 (Pull Configuration, SQL Reporting).ps1 = LabSources\SampleScripts\Scenarios\DSC Pull Scenario 1 (Pull Configuration, SQL Reporting).ps1
 		LabSources\SampleScripts\Scenarios\DSC Pull Scenario 2 (Pull Partial Configuration).ps1 = LabSources\SampleScripts\Scenarios\DSC Pull Scenario 2 (Pull Partial Configuration).ps1
+		LabSources\SampleScripts\Scenarios\DSC With Release Pipeline.ps1 = LabSources\SampleScripts\Scenarios\DSC With Release Pipeline.ps1
 		LabSources\SampleScripts\Scenarios\Failover Clustering 1.ps1 = LabSources\SampleScripts\Scenarios\Failover Clustering 1.ps1
 		LabSources\SampleScripts\Scenarios\Hybrid Environment HyperV and Azure 1.ps1 = LabSources\SampleScripts\Scenarios\Hybrid Environment HyperV and Azure 1.ps1
 		LabSources\SampleScripts\Scenarios\Lab in a Box 1 - HyperV.ps1 = LabSources\SampleScripts\Scenarios\Lab in a Box 1 - HyperV.ps1
 		LabSources\SampleScripts\Scenarios\Lab in a Box 2 - Azure.ps1 = LabSources\SampleScripts\Scenarios\Lab in a Box 2 - Azure.ps1
+		LabSources\SampleScripts\Scenarios\MDT Lab 1, MDT Server 1.ps1 = LabSources\SampleScripts\Scenarios\MDT Lab 1, MDT Server 1.ps1
+		LabSources\SampleScripts\Scenarios\MDT Lab 2, DC and MDT Server.ps1 = LabSources\SampleScripts\Scenarios\MDT Lab 2, DC and MDT Server.ps1
 		LabSources\SampleScripts\Scenarios\Multi-AD Forest with Trusts.ps1 = LabSources\SampleScripts\Scenarios\Multi-AD Forest with Trusts.ps1
 		LabSources\SampleScripts\Scenarios\ProGet Lab - HyperV.ps1 = LabSources\SampleScripts\Scenarios\ProGet Lab - HyperV.ps1
-		LabSources\SampleScripts\Scenarios\TFS Deployment.ps1 = LabSources\SampleScripts\Scenarios\TFS Deployment.ps1
+		LabSources\SampleScripts\Scenarios\TFS 2015 Deployment.ps1 = LabSources\SampleScripts\Scenarios\TFS 2015 Deployment.ps1
+		LabSources\SampleScripts\Scenarios\TFS 2017 Deployment.ps1 = LabSources\SampleScripts\Scenarios\TFS 2017 Deployment.ps1
 		LabSources\SampleScripts\Scenarios\WinRM clients with SSL.ps1 = LabSources\SampleScripts\Scenarios\WinRM clients with SSL.ps1
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "OSUpdates", "OSUpdates", "{BB2F6956-209C-40CB-8877-07E3F5C79F76}"
 	ProjectSection(SolutionItems) = preProject
-		LabSources\OSUpdates\_Put all OS updates in here for offline patching.txt = LabSources\OSUpdates\_Put all OS updates in here for offline patching.txt
+		LabSources\OSUpdates\README.md = LabSources\OSUpdates\README.md
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SetupDscClients", "SetupDscClients", "{6BF9A116-7E73-4D94-8E57-4E1CCBC5DA62}"
@@ -360,7 +362,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Private", "Private", "{6E73
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "CustomRoles", "CustomRoles", "{EB139A97-DC93-405A-BBBC-CD5EB12D6E3C}"
 	ProjectSection(SolutionItems) = preProject
-		LabSources\CustomRoles\_Put custom role scripts here.txt = LabSources\CustomRoles\_Put custom role scripts here.txt
+		LabSources\CustomRoles\README.md = LabSources\CustomRoles\README.md
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "AutomatedLab.Common", "AutomatedLab.Common", "{E024D96C-6476-4F89-A0B2-4AF5E0DBB747}"
@@ -528,8 +530,68 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "DemoCustomRole1", "DemoCustomRole1", "{AC8B92ED-54DE-41B5-98FB-AA9815077B34}"
 	ProjectSection(SolutionItems) = preProject
 		LabSources\CustomRoles\DemoCustomRole\DemoCustomRole.ps1 = LabSources\CustomRoles\DemoCustomRole\DemoCustomRole.ps1
-		LabSources\CustomRoles\DemoCustomRole\HostCleanup.ps1 = LabSources\CustomRoles\DemoCustomRole\HostCleanup.ps1
-		LabSources\CustomRoles\DemoCustomRole\HostInit.ps1 = LabSources\CustomRoles\DemoCustomRole\HostInit.ps1
+		LabSources\CustomRoles\DemoCustomRole\HostEnd.ps1 = LabSources\CustomRoles\DemoCustomRole\HostEnd.ps1
+		LabSources\CustomRoles\DemoCustomRole\HostStart.ps1 = LabSources\CustomRoles\DemoCustomRole\HostStart.ps1
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "MDT", "MDT", "{D4D2647A-AC57-446F-BB07-95899E248D06}"
+	ProjectSection(SolutionItems) = preProject
+		LabSources\CustomRoles\MDT\DownloadAdk.ps1 = LabSources\CustomRoles\MDT\DownloadAdk.ps1
+		LabSources\CustomRoles\MDT\HostStart.ps1 = LabSources\CustomRoles\MDT\HostStart.ps1
+		LabSources\CustomRoles\MDT\InstallMDT.ps1 = LabSources\CustomRoles\MDT\InstallMDT.ps1
+		LabSources\CustomRoles\MDT\MDTApplications.xml = LabSources\CustomRoles\MDT\MDTApplications.xml
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ProGet5", "ProGet5", "{0249ABF7-D843-4050-9E71-8F23B5341DF8}"
+	ProjectSection(SolutionItems) = preProject
+		LabSources\CustomRoles\ProGet5\HostStart.ps1 = LabSources\CustomRoles\ProGet5\HostStart.ps1
+		LabSources\CustomRoles\ProGet5\README.md = LabSources\CustomRoles\ProGet5\README.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "TeamFoundation", "TeamFoundation", "{68FDA044-3B7F-486E-A69B-AB1583E48175}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Types", "Types", "{8B1F613E-4E3F-4C42-B2CC-CD8C72D4667A}"
+	ProjectSection(SolutionItems) = preProject
+		AutomatedLab.Common\AutomatedLab.Common\TeamFoundation\Types\CertificateCallBack.ps1 = AutomatedLab.Common\AutomatedLab.Common\TeamFoundation\Types\CertificateCallBack.ps1
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Public", "Public", "{9973283D-AB99-434B-B67F-7E32C4F36370}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Build", "Build", "{23491B35-642A-46FF-89E6-386A8D499E48}"
+	ProjectSection(SolutionItems) = preProject
+		AutomatedLab.Common\AutomatedLab.Common\TeamFoundation\Public\Build\Get-TfsBuildDefinition.ps1 = AutomatedLab.Common\AutomatedLab.Common\TeamFoundation\Public\Build\Get-TfsBuildDefinition.ps1
+		AutomatedLab.Common\AutomatedLab.Common\TeamFoundation\Public\Build\Get-TfsBuildDefinitionTemplate.ps1 = AutomatedLab.Common\AutomatedLab.Common\TeamFoundation\Public\Build\Get-TfsBuildDefinitionTemplate.ps1
+		AutomatedLab.Common\AutomatedLab.Common\TeamFoundation\Public\Build\Get-TfsBuildStep.ps1 = AutomatedLab.Common\AutomatedLab.Common\TeamFoundation\Public\Build\Get-TfsBuildStep.ps1
+		AutomatedLab.Common\AutomatedLab.Common\TeamFoundation\Public\Build\New-TfsBuildDefinition.ps1 = AutomatedLab.Common\AutomatedLab.Common\TeamFoundation\Public\Build\New-TfsBuildDefinition.ps1
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Generic", "Generic", "{A0965B4F-A53C-465D-942B-BCE8425E5A62}"
+	ProjectSection(SolutionItems) = preProject
+		AutomatedLab.Common\AutomatedLab.Common\TeamFoundation\Public\Generic\Get-TfsAccessTokenString.ps1 = AutomatedLab.Common\AutomatedLab.Common\TeamFoundation\Public\Generic\Get-TfsAccessTokenString.ps1
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Pools", "Pools", "{146702FC-E801-42D2-8947-88D0E98CB9EB}"
+	ProjectSection(SolutionItems) = preProject
+		AutomatedLab.Common\AutomatedLab.Common\TeamFoundation\Public\Pools\Get-TfsAgentPool.ps1 = AutomatedLab.Common\AutomatedLab.Common\TeamFoundation\Public\Pools\Get-TfsAgentPool.ps1
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Projects", "Projects", "{D30ED7EF-3594-41E1-8D41-58C92F71460E}"
+	ProjectSection(SolutionItems) = preProject
+		AutomatedLab.Common\AutomatedLab.Common\TeamFoundation\Public\Projects\Get-TfsProcessTemplate.ps1 = AutomatedLab.Common\AutomatedLab.Common\TeamFoundation\Public\Projects\Get-TfsProcessTemplate.ps1
+		AutomatedLab.Common\AutomatedLab.Common\TeamFoundation\Public\Projects\Get-TfsProject.ps1 = AutomatedLab.Common\AutomatedLab.Common\TeamFoundation\Public\Projects\Get-TfsProject.ps1
+		AutomatedLab.Common\AutomatedLab.Common\TeamFoundation\Public\Projects\New-TfsProject.ps1 = AutomatedLab.Common\AutomatedLab.Common\TeamFoundation\Public\Projects\New-TfsProject.ps1
+		AutomatedLab.Common\AutomatedLab.Common\TeamFoundation\Public\Projects\Set-TfsProject.ps1 = AutomatedLab.Common\AutomatedLab.Common\TeamFoundation\Public\Projects\Set-TfsProject.ps1
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Queue", "Queue", "{CDE85675-45A5-4C67-B79D-64F336751D5F}"
+	ProjectSection(SolutionItems) = preProject
+		AutomatedLab.Common\AutomatedLab.Common\TeamFoundation\Public\Queue\Get-TfsAgentQueue.ps1 = AutomatedLab.Common\AutomatedLab.Common\TeamFoundation\Public\Queue\Get-TfsAgentQueue.ps1
+		AutomatedLab.Common\AutomatedLab.Common\TeamFoundation\Public\Queue\New-TfsAgentQueue.ps1 = AutomatedLab.Common\AutomatedLab.Common\TeamFoundation\Public\Queue\New-TfsAgentQueue.ps1
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Repository", "Repository", "{5A35AA7F-30CF-4AC2-915B-0F41530CA9A9}"
+	ProjectSection(SolutionItems) = preProject
+		AutomatedLab.Common\AutomatedLab.Common\TeamFoundation\Public\Repository\Get-TfsGitRepository.ps1 = AutomatedLab.Common\AutomatedLab.Common\TeamFoundation\Public\Repository\Get-TfsGitRepository.ps1
 	EndProjectSection
 EndProject
 Global
@@ -622,6 +684,17 @@ Global
 		{9598B13D-43BD-4D68-A718-5D48693A2E36} = {0EFBFD4C-D963-4AFC-8C75-D6DBD05DA4C9}
 		{F8AE4BA3-E199-4E0A-A236-75EF8AB9F3CE} = {1130E19B-F91C-493B-AC50-8B7862716FB6}
 		{AC8B92ED-54DE-41B5-98FB-AA9815077B34} = {EB139A97-DC93-405A-BBBC-CD5EB12D6E3C}
+		{D4D2647A-AC57-446F-BB07-95899E248D06} = {EB139A97-DC93-405A-BBBC-CD5EB12D6E3C}
+		{0249ABF7-D843-4050-9E71-8F23B5341DF8} = {EB139A97-DC93-405A-BBBC-CD5EB12D6E3C}
+		{68FDA044-3B7F-486E-A69B-AB1583E48175} = {D1BDF6ED-8F1B-4254-9993-3A27BA640F4E}
+		{8B1F613E-4E3F-4C42-B2CC-CD8C72D4667A} = {68FDA044-3B7F-486E-A69B-AB1583E48175}
+		{9973283D-AB99-434B-B67F-7E32C4F36370} = {68FDA044-3B7F-486E-A69B-AB1583E48175}
+		{23491B35-642A-46FF-89E6-386A8D499E48} = {9973283D-AB99-434B-B67F-7E32C4F36370}
+		{A0965B4F-A53C-465D-942B-BCE8425E5A62} = {9973283D-AB99-434B-B67F-7E32C4F36370}
+		{146702FC-E801-42D2-8947-88D0E98CB9EB} = {9973283D-AB99-434B-B67F-7E32C4F36370}
+		{D30ED7EF-3594-41E1-8D41-58C92F71460E} = {9973283D-AB99-434B-B67F-7E32C4F36370}
+		{CDE85675-45A5-4C67-B79D-64F336751D5F} = {9973283D-AB99-434B-B67F-7E32C4F36370}
+		{5A35AA7F-30CF-4AC2-915B-0F41530CA9A9} = {9973283D-AB99-434B-B67F-7E32C4F36370}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {E716662E-EF8D-4B55-AAEE-8AB4FFD8A321}
