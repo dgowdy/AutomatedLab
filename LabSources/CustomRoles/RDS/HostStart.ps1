@@ -59,7 +59,23 @@ switch ($IsAdvancedRDSDeployment)
 
             'RDSCB'
             {
+if(Get-Module -Name InstallRDSAD -ErrorAction SilentlyContinue)
+                {
+                    Remove-Module InstallRDSCB
+                    Import-Module $PSScriptRoot\InstallRDSCB.psm1
+                }
+                else
+                {
+                    Import-Module $PSScriptRoot\InstallRDSCB.psm1
+                }
+                
+                $module = Get-Command -Module InstallRDSCB
+                
+                Invoke-LabCommand -ComputerName $RDSCBComputerName -ActivityName 'Installing RSAT-AD-PowerShell' -ScriptBlock {
+                    Install-WindowsFeature -Name 'RSAT-AD-PowerShell'
+                }
 
+                Invoke-LabCommand -ComputerName
             }
 
             'RDSGW'
