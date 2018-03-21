@@ -1,15 +1,4 @@
-param
-(
-    [Parameter()]
-    [String]
-    $ConnectionBrokerHighAvailabilty,
-
-    [Parameter(Mandatory)]
-    [String]
-    $RDSStructureName
-)
-
-function New-OUSubfolderStructure()
+function New-OUSubfolderStructure
 {    
     param
     (
@@ -82,8 +71,8 @@ function New-ADStructure
 {
     param
     (
-        [Parameter()]
-        [bool]
+        [Parameter(Mandatory)]
+        [string]
         $ConnectionBrokerHighAvailabilty,
 
         [Parameter(Mandatory)]
@@ -103,7 +92,8 @@ function New-ADStructure
         New-OUSubfolderStructure -DN $dn_rds -Folderstructure $subfolders
         if ($ConnectionBrokerHighAvailabilty)
         {
-            if (Get-ADGroupState -DN $dn_rds)
+            $group_rdsconnectionbroker = [String]::Concat("CN=G_ConnectionBrokerServers,",$dn_rds)
+            if (Get-ADGroupState -DN $group_rdsconnectionbroker)
             {
                 Write-Output -InputObject "Global Group G_ConnectionBrokerServers already exists."
             }
@@ -124,7 +114,8 @@ function New-ADStructure
 
         if ($ConnectionBrokerHighAvailabilty)
         {
-            if (Get-ADGroupState -DN $dn_rds)
+            $group_rdsconnectionbroker = [String]::Concat("CN=G_ConnectionBrokerServers,",$dn_rds)
+            if (Get-ADGroupState -DN $group_rdsconnectionbroker)
             {
                 Write-Output -InputObject "Global Group G_ConnectionBrokerServers already exists."
             }
@@ -134,18 +125,5 @@ function New-ADStructure
                 New-ADGroup -Name "G_ConnectionBrokerServers" -GroupScope Global -GroupCategory Security -SamAccountName "G_ConnectionBrokerServers" -Path $dn_rds       
             }       
         }
-    }
-}
-
-switch ($ConnectionBrokerHighAvailabilty)
-{
-    'Yes'
-    {
-        New-ADStructure -RDSStructureName $RDSStructureName -ConnectionBrokerHighAvailabilty 'Yes'
-    }
-
-    'No'
-    {
-        New-ADStructure -RDSStructureName $RDSStructureName -ConnectionBrokerHighAvailabilty 'No'
     }
 }
