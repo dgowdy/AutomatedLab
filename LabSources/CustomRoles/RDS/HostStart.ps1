@@ -31,21 +31,15 @@ param
 
 Import-Lab -Path $LabPath
 
-switch ($IsAdvancedRDSDeployment)
-{
-    'Yes'
-    {
-        switch ($Roles)
-        {
-            'RDSAD'
-            {                
-                if(Get-Module -Name InstallRDSAD -ErrorAction SilentlyContinue)
-                {
+switch ($IsAdvancedRDSDeployment) {
+    'Yes' {
+        switch ($Roles) {
+            'RDSAD' {                
+                if (Get-Module -Name InstallRDSAD -ErrorAction SilentlyContinue) {
                     Remove-Module InstallRDSAD
                     Import-Module $PSScriptRoot\InstallRDSAD.psm1
                 }
-                else
-                {
+                else {
                     Import-Module $PSScriptRoot\InstallRDSAD.psm1
                 }
                 
@@ -53,19 +47,16 @@ switch ($IsAdvancedRDSDeployment)
                 $rootdcname = Get-LabVM -Role RootDC | Select-Object -First 1 -ExpandProperty Name
 
                 Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Creating RDS ActiveDirectory Structure' -ScriptBlock {
-                  New-ADStructure -ConnectionBrokerHighAvailabilty $args[0] -RDSStructureName $args[1]
-                } -Function $module -ArgumentList $ConnectionBrokerHighAvailabilty,$RDSStructureName                
+                    New-ADStructure -ConnectionBrokerHighAvailabilty $args[0] -RDSStructureName $args[1]
+                } -Function $module -ArgumentList $ConnectionBrokerHighAvailabilty, $RDSStructureName                
             }
 
-            'RDSCB'
-            {
-if(Get-Module -Name InstallRDSAD -ErrorAction SilentlyContinue)
-                {
+            'RDSCB' {
+                if (Get-Module -Name InstallRDSAD -ErrorAction SilentlyContinue) {
                     Remove-Module InstallRDSCB
                     Import-Module $PSScriptRoot\InstallRDSCB.psm1
                 }
-                else
-                {
+                else {
                     Import-Module $PSScriptRoot\InstallRDSCB.psm1
                 }
                 
@@ -78,30 +69,25 @@ if(Get-Module -Name InstallRDSAD -ErrorAction SilentlyContinue)
                 Invoke-LabCommand -ComputerName
             }
 
-            'RDSGW'
-            {
+            'RDSGW' {
 
             }
 
-            'RDSLIC'
-            {
+            'RDSLIC' {
 
             }
 
-            'RDSSH'
-            {
+            'RDSSH' {
 
             }
 
-            'RDSWA'
-            {
+            'RDSWA' {
 
             }
         }
     }
 
-    'No'
-    {
+    'No' {
 
     }
 }
