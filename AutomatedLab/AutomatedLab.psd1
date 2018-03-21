@@ -109,6 +109,7 @@
         'Get-LabVariable',
         'Get-LabVHDX',
         'Get-LabVM',
+        'Get-LabVMDotNetFrameworkVersion',
         'Get-LabVMRdpFile',
         'Get-LabVMStatus',
         'Get-LabVMUptime',
@@ -203,6 +204,7 @@
         'Wait-LabVMRestart',
         'Wait-LabVMShutdown',
         'Get-LabBuildStep',
+        'Get-LabReleaseStep',
         'New-LabReleasePipeline'
     )
     
