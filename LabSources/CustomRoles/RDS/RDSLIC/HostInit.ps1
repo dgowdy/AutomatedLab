@@ -1,1 +1,0 @@
-& $PSScriptRoot\RDSLIC.ps1

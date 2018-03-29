@@ -22,7 +22,7 @@ function New-OUSubfolderStructure
         else
         {
             Write-Output -InputObject "Going to create OU $folder in path $DN"
-            New-ADOrganizationalUnit -Name "$folder" -Path $DN -Description "Session Based Desktop Servers"
+            New-ADOrganizationalUnit -Name "$folder" -Path $DN
         }
     }
 }
@@ -73,26 +73,22 @@ function New-ADStructure
     (
         [Parameter(Mandatory)]
         [string]
-        $ConnectionBrokerHighAvailabilty,
-
-        [Parameter(Mandatory)]
-        [String]
-        $RDSStructureName
+        $ConnectionBrokerHighAvailabilty
     )
 
     $dn = (Get-ADDomain).DistinguishedName
-    $dn_rds = [String]::Concat("OU=$RDSStructureName,", $dn)
-    $subfolders = "RDSBD", "RDSFS", "RDSGW", "RDSWA", "RDSSH", "RDSGroups", "RDSCB"
+    $dn_rds = [String]::Concat("OU=RDS,", $dn)
+    $subfolders = "RDSBD", "RDSFS", "RDSGW", "RDSWA", "RDSSH", "RDSGroups", "RDSCB", "RDSLIC"
 
     try
     {
         $null = Get-ADOrganizationalUnit -Identity $dn_rds -ErrorAction SilentlyContinue
-        Write-Output -InputObject "OU $RDSStructureName already exists."
+        Write-Output -InputObject "OU RDS already exists."
         Write-Output -InputObject "Check if subfolders are missing."
         New-OUSubfolderStructure -DN $dn_rds -Folderstructure $subfolders
         if ($ConnectionBrokerHighAvailabilty)
         {
-            $group_rdsconnectionbroker = [String]::Concat("CN=G_ConnectionBrokerServers,",$dn_rds)
+            $group_rdsconnectionbroker = [String]::Concat("CN=G_ConnectionBrokerServers,", $dn_rds)
             if (Get-ADGroupState -DN $group_rdsconnectionbroker)
             {
                 Write-Output -InputObject "Global Group G_ConnectionBrokerServers already exists."
@@ -109,12 +105,12 @@ function New-ADStructure
         Write-Output -InputObject "OU Structure not there Create it"
    
         Write-Output -InputObject "Create A New Folderstructure."
-        New-ADOrganizationalUnit -Name "$RDSStructureName" -Path $dn -Description "Entrypoint for RDS AD Structure"
+        New-ADOrganizationalUnit -Name "RDS" -Path $dn -Description "Entrypoint for RDS AD Structure"
         New-OUSubfolderStructure -DN $dn_rds -Folderstructure $subfolders
 
         if ($ConnectionBrokerHighAvailabilty)
         {
-            $group_rdsconnectionbroker = [String]::Concat("CN=G_ConnectionBrokerServers,",$dn_rds)
+            $group_rdsconnectionbroker = [String]::Concat("CN=G_ConnectionBrokerServers,", $dn_rds)
             if (Get-ADGroupState -DN $group_rdsconnectionbroker)
             {
                 Write-Output -InputObject "Global Group G_ConnectionBrokerServers already exists."
