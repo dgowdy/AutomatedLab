@@ -19,7 +19,7 @@ switch ($IsAdvancedRDSDeployment)
 {
     'Yes'
     {
-        if (Get-Module -Name InstallRDSAD -ErrorAction SilentlyContinue)
+        if (Get-Module -Name SetupHelper -ErrorAction SilentlyContinue)
         {
             Remove-Module SetupHelper
             Import-Module $PSScriptRoot\SetupHelper.psm1
