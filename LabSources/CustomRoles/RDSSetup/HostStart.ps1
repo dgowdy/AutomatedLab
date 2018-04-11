@@ -5,10 +5,6 @@ param
     $IsAdvancedRDSDeployment,
 
     [Parameter(Mandatory)]
-    [string]
-    $RDSSetupComputerName,
-
-    [Parameter(Mandatory)]
     [String]
     $LabPath
 )
@@ -48,6 +44,10 @@ switch ($IsAdvancedRDSDeployment)
                 Add-ServerListEntry
             }
         } -Function $module
+
+        Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Reset ServerManager open at logon' -ScriptBlock {
+            Set-ItemProperty -Path HKCU:\Software\Microsoft\ServerManager -Name DoNotOpenServerManagerAtLogon -Value "0x01" -Force
+        }
     }
 
     'No'

@@ -16,7 +16,7 @@ function Close-ServerManager
     if ($ServerManagerProcess)
     {
         Write-Output 'Stopping ServerManager.'
-        Stop-Process -Name ServerManager
+        $null = Get-Process -Name ServerManager | ForEach-Object {$_.CloseMainWindow()}
     }
     else
     {
@@ -80,12 +80,13 @@ function Find-IfServerIsInServerListFile
         {
             if ($RDSServer -eq $XMLServer)
             {
-                $null = $returnarray.Add($true)
+                $row = [PSCustomObject]@{Status = $true; RDSServer = $RDSServer}
+                $null = $returnarray.Add($row)
             }
             else
             {
-                $null = $returnarray.Add($false)
-                $null = $returnarray.Add($RDSServer)
+                $row = [PSCustomObject]@{Status = $false; RDSServer = $RDSServer}
+                $null = $returnarray.Add($row)
             }
         }
     }
@@ -112,6 +113,7 @@ function Add-XMLEntryToServerListFile
 }
 function Add-ServerListEntry
 {
+    $ServerListPath = Get-ServerListPath
     # Make a duplicate of the ServerList.xml
     $ServerList_NewPath = "$env:USERPROFILE\AppData\Roaming\Microsoft\Windows\ServerManager\ServerList1.xml"
     if (Test-IfServerListExist -ServerListPath $ServerList_NewPath)
@@ -134,27 +136,30 @@ function Add-ServerListEntry
     # Create a New ServerElement for each RDS Server
     $return_FindIfServerIsInServerListFile = Find-IfServerIsInServerListFile -AllXMLServers $return_AllXMLServers -AllRDSComputers $return_AllRDSADPCs 
 
-    if ($return_FindIfServerIsInServerListFile.Where{$_ -eq $true})
+    if ($return_FindIfServerIsInServerListFile.Where{$_.Status -eq $true})
     {
         Write-Output 'Entry is already in ServerList.xml.'
     }
     else
     {
         Write-Output 'Entry is not in ServerList.xml. Adding it.'
-        $return_AddXMLEntryToServerListFile = Add-XMLEntryToServerListFile -RDSServer $return_FindIfServerIsInServerListFile[1]
-        $null = $return_AddXMLEntryToServerListFile.Save($ServerListFile.FullName)
+        for($i = 0; $i -lt $return_FindIfServerIsInServerListFile.Count; $i++)
+        {
+            $return_AddXMLEntryToServerListFile = Add-XMLEntryToServerListFile -RDSServer $return_FindIfServerIsInServerListFile[$i].RDSServer
+            $null = $return_AddXMLEntryToServerListFile.Save($ServerListFile.FullName)
+        }        
     }
 }
 function New-ServerListFile
 {
     # Starting ServerManager
     Start-Process -FilePath "$env:windir\System32\ServerManager.exe"
-    Start-Sleep -Seconds 5
-    
-    # Stop ServerManager gracefully to create the xml File
+    Start-Sleep -Seconds 10
+        # Stop ServerManager gracefully to create the xml File
     $null = Get-Process -Name ServerManager | ForEach-Object {$_.CloseMainWindow()}
-    Start-Sleep -Seconds 5
+    Start-Sleep -Seconds 10
 
+    $ServerListPath = Get-ServerListPath
     # Make a duplicate of the ServerList.xml
     $ServerList_NewPath = "$env:USERPROFILE\AppData\Roaming\Microsoft\Windows\ServerManager\ServerList1.xml"
     if (Test-Path -Path $ServerList_NewPath)

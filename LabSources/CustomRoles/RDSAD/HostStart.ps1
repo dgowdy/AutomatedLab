@@ -33,9 +33,15 @@ switch ($IsAdvancedRDSDeployment)
         $module = Get-Command -Module InstallRDSAD
         $rootdcname = Get-LabVM -Role RootDC | Select-Object -First 1 -ExpandProperty Name
 
+        Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Open Server Manger at Startup' -ScriptBlock {
+            Set-ItemProperty -Path 'HKCU:\Software\Microsoft\ServerManager' -Name DoNotOpenServerManagerAtLogon -Value "0x0" -Force
+        }
+
         Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Creating RDS ActiveDirectory Structure' -ScriptBlock {
             New-ADStructure -ConnectionBrokerHighAvailabilty $args[0]
         } -Function $module -ArgumentList $ConnectionBrokerHighAvailabilty
+        
+        Restart-LabVM -ComputerName $rootdcname -Wait      
     }
 
     'No'
