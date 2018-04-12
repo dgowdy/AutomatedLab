@@ -143,7 +143,7 @@ function Add-ServerListEntry
     else
     {
         Write-Output 'Entry is not in ServerList.xml. Adding it.'
-        for($i = 0; $i -lt $return_FindIfServerIsInServerListFile.Count; $i++)
+        for ($i = 0; $i -lt $return_FindIfServerIsInServerListFile.Count; $i++)
         {
             $return_AddXMLEntryToServerListFile = Add-XMLEntryToServerListFile -RDSServer $return_FindIfServerIsInServerListFile[$i].RDSServer
             $null = $return_AddXMLEntryToServerListFile.Save($ServerListFile.FullName)
@@ -155,7 +155,7 @@ function New-ServerListFile
     # Starting ServerManager
     Start-Process -FilePath "$env:windir\System32\ServerManager.exe"
     Start-Sleep -Seconds 10
-        # Stop ServerManager gracefully to create the xml File
+    # Stop ServerManager gracefully to create the xml File
     $null = Get-Process -Name ServerManager | ForEach-Object {$_.CloseMainWindow()}
     Start-Sleep -Seconds 10
 
@@ -169,6 +169,60 @@ function New-ServerListFile
     else
     {
         Copy-Item -Path $ServerListPath -Destination $ServerList_NewPath -Force
+    }
+}
+#endregion
+
+#region AD
+function Get-DomainInformation
+{
+    Import-Module ActiveDirectory -ErrorAction Stop
+    $domaininfo = Get-ADDomain
+    return $domaininfo
+}
+
+function Get-RDSADComputer
+{
+    param
+    (
+        [Parameter(Mandatory)]
+        [String]
+        $OuName
+    )
+    
+    $AllOUComputers = New-Object -TypeName System.Collections.ArrayList
+
+    Import-Module ActiveDirectory -ErrorAction Stop
+    $DomainInformation = Get-DomainInformation
+    $DomainDN = $DomainInformation.DNSHostName
+    $OuNameDN = [String]::Concat("OU=$OuName,", "OU=RDS,", $DomainDN)
+    $Computers = (Get-ADComputer -Searchbase $OUNameDN -Filter *).DNSHostName
+
+    foreach ($Computer in $Computers)
+    {
+        $row = [PSCustomObject]@{
+            ComputerName = $Computer
+        }
+        $AllOUComputers.Add($row)
+    }
+
+    return $AllOUComputers
+}
+#endregion
+
+#region RDS
+function Get-RDSDeployment
+{
+    Import-Module RemoteDesktop
+    $result = Get-RDSessionCollection -CollectionName "ALRDSCollection" -ErrorAction SilentlyContinue
+
+    if ($result)
+    {
+        return $true        
+    }
+    else
+    {
+        return $false
     }
 }
 #endregion
