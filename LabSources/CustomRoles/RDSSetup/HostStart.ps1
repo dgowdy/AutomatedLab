@@ -29,6 +29,12 @@ switch ($IsAdvancedRDSDeployment)
 
         $rootdcname = Get-LabVM -Role RootDC | Select-Object -First 1 -ExpandProperty Name
 
+        Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Open Server Manger at Startup' -ScriptBlock {
+            Set-ItemProperty -Path 'HKCU:\Software\Microsoft\ServerManager' -Name DoNotOpenServerManagerAtLogon -Value "0x0" -Force
+        }
+
+        Restart-LabVM -ComputerName $rootdcname -Wait -NoNewLine
+
         Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Add All RDS Servers To Server Manager' -ScriptBlock {
             $return_ServerListPath = Get-ServerListPath
             Close-ServerManager
