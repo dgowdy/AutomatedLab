@@ -10,6 +10,10 @@ param
 
     [Parameter(Mandatory)]
     [String]
+    $RDSDNSName,
+
+    [Parameter(Mandatory)]
+    [String]
     $LabPath
 )
 
@@ -37,11 +41,54 @@ switch ($IsAdvancedRDSDeployment)
             Set-ItemProperty -Path 'HKCU:\Software\Microsoft\ServerManager' -Name DoNotOpenServerManagerAtLogon -Value "0x0" -Force
         }
 
-        Restart-LabVM -ComputerName $rootdcname -Wait -NoNewLine
+        Restart-LabVM -ComputerName $rootdcname -Wait
+                
+        # Check if AD is reachable
+        $result = Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Check if ad is reachable.' -ScriptBlock {
+            $service = Get-Service adws
+            return $service
+        }
+
+        while ($result.Status -eq 'Stopped')
+        {
+            Write-ScreenInfo -Message 'PowerShell Domain Services not reachable.'
+            $result = Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Check if ad is reachable.' -ScriptBlock {
+                $service = Get-Service adws
+                return $service
+            }
+        }
+
+        # Check if WebService Responds to port request
+        $result = Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Check if AD Web Service port is responding.' -ScriptBlock {
+            $response = Test-NetConnection -Port 9389 -InformationLevel Quiet
+            return $response
+        }
+
+        while ($result.TcpTestSucceeded -eq $false)
+        {
+            $result = Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Check if AD Web Service port is responding.' -ScriptBlock {
+                $response = Test-NetConnection -Port 9389
+                return $response
+            }
+        }
+
+        # Create Scheduled Task to Close ServerManager
+        Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Create Scheduled Task to gracefully close ServerManager' -ScriptBlock {
+            $UserName = $Env:USERNAME
+            $Domain = $env:USERDNSDOMAIN
+            
+            $Action = New-ScheduledTaskAction -Execute powershell.exe -Argument "-ExecutionPolicy Bypass -Command ""Get-Process -Name ServerManager | Foreach-Object {`$_.CloseMainWindow()}"""
+            $Principal = New-ScheduledTaskPrincipal -RunLevel Highest -UserId "$Domain\$UserName"
+            $Task = New-ScheduledTask -Action $Action -Principal $Principal
+            Register-ScheduledTask -TaskName "KillServerManager" -InputObject $task
+        }
+
+        Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Run Scheduled Task To gracefully close ServerManager' -ScriptBlock {
+            Start-ScheduledTask -TaskName 'KillServerManager'
+        }
 
         Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Add All RDS Servers To Server Manager' -ScriptBlock {
             $return_ServerListPath = Get-ServerListPath
-            Close-ServerManager
 
             # Test if ServerList.xml exists
             if (Test-IfServerListExist -ServerListPath $return_ServerListPath)
@@ -55,9 +102,39 @@ switch ($IsAdvancedRDSDeployment)
             }
         } -Function $module
 
-        $AllCBServers = Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Get All Connection Broker Servers.' -ScriptBlock {
+        <# $AllCBServers = Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Get All Connection Broker Servers.' -ScriptBlock {
             Get-RDSADComputer -OUName "RDSCB"
         } -Function $module
+
+        # Add Dns Zone and IP Adresses of all Connection Broker Servers to it. (Round Robin)
+        Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Creating DNS Zone for RDS deployment' -ScriptBlock {
+            
+            # Calculate Zone Name
+            $dnsZone = $args[0].Substring($dnsZone.IndexOf('.') + 1)
+            $dnsname = $args[0].Substring(0, $dnsZone.IndexOf('.'))
+
+            # Check if DNS Zone exist
+            if (Get-DnsServerZone | Where-Object {$_.ZoneName -eq ('{0}' -f $dnsZone)})
+            {
+                # Create the records
+                foreach ($CBServer in $args[1])
+                {
+                    $ipaddress = (Get-DnsServerResourceRecord -ZoneName $dnsZone -Name $CBServer).RecordData.IPv4Address.IPAddressToString
+                    Add-DnsServerResourceRecord -ZoneName $dnsZone -IPv4Address $ipaddress -A -Name $dnsname
+                }
+            }
+            else
+            {
+                # Create the zone and then the records
+                Add-DnsServerPrimaryZone -Name $dnsZone -ReplicationScope Forest
+                foreach ($CBServer in $args[1])
+                {
+                    $ipaddress = (Get-DnsServerResourceRecord -ZoneName $dnsZone -Name $CBServer).RecordData.IPv4Address.IPAddressToString
+                    Add-DnsServerResourceRecord -ZoneName $dnsZone -IPv4Address $ipaddress -A -Name $dnsname
+                }
+            }
+
+        } -Function $module -ArgumentList $RDSDNSName, $AllCBServers
 
         $activeRDSDeployment = $false
         
@@ -65,7 +142,7 @@ switch ($IsAdvancedRDSDeployment)
         {
             $result_rdsdeployment = Invoke-LabCommand -ComputerName $CBServer -ActivityName "Check on Connection Broker $CBServer if we have a RDSDeployment" -ScriptBlock {
                 Get-RDSDeployment
-            }
+            } -Function $module
 
             if ($result_rdsdeployment)
             {
@@ -75,7 +152,7 @@ switch ($IsAdvancedRDSDeployment)
         
         if ($activeRDSDeployment)
         {
-            Write-ScreenInfo -Message "We already have a RDS Deployment." -NoNewLine
+            Write-ScreenInfo -Message "We already have a RDS Deployment."
         }
         else
         {
@@ -111,25 +188,39 @@ switch ($IsAdvancedRDSDeployment)
                 $AllSessionHostServers += $SessionBasedDesktopServer
             }
 
-            #$va_SessionHostServers = Get-Variable -Name allSessionHostServers
-            $va_SessionBasedHostServers = Get-Variable -Name AllSessionHostServers
-            $va_WebAccessServers = Get-Variable -Name allWebAccessServers
-            $va_ConnectionBrokerServers = Get-Variable -Name AllCBServers
+            $firstwa = $allWebAccessServers | Select-Object -First 1
+            $firstcb = $AllCBServers | Select-Object -First 1
 
             #TODO: ConnectionBroker Problem. Only One Server can be deployed as connection Broker in the first Step
             Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Create New RDS Deployment' -ScriptBlock {
                 New-RDSessionDeployment -ConnectionBroker $args[2] -WebAccessServer $args[1] -SessionHost $args[0] 
-            } -Variable $va_SessionBasedHostServers, $va_WebAccessServers, $va_ConnectionBrokerServers
+            } -ArgumentList $AllSessionHostServers, $firstwa, $firstcb
 
             if ($ConnectionBrokerHighAvailabilty -eq 'Yes')
             {
-                #TODO: Is SQL Server in Lab Deployment
+                #Is SQL Server in Lab Deployment ?
+                $ISQLServer = Get-LabVM | Where-Object {$_.Roles -like "SQLServer*"}
 
-                #TODO: Add The DNS Name for the roundrobin
-                
-                #TODO: Change ComputerName, Count Variable whitch Connection Broker is added
-                Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Adding 2nd Connection Broker Server.' -ScriptBlock {
-                    Add-RDServer -Server CB -Role 'RDS-CONNECTION-BROKER' -ConnectionBroker CBName
+                if (-not ($ISQLServer))
+                {
+                    throw "No SQL Server found in Lab. Please add one."
+                }
+                else
+                {
+                    Write-ScreenInfo -Message 'SQL Server Machine was found in Lab Deployment. Continue with deployment.'
+                }
+
+                $restcb = $AllCBServers | Select-Object -Skip 1
+                $firstcb = $AllCBServers | Select-Object -First 1
+
+                foreach ($CBServer in $restcb)
+                {                    
+                    $i = 1
+
+                    #TODO: Change ComputerName, Count Variable whitch Connection Broker is added
+                    Invoke-LabCommand -ComputerName $rootdcname -ActivityName "Adding $i additional Connection Broker Server." -ScriptBlock {
+                        Add-RDServer -Server $args[0] -Role 'RDS-CONNECTION-BROKER' -ConnectionBroker $args[1]
+                    } -ArgumentList $CBServer, $firstcb
                 }
 
                 #TODO: Configure HA for Connection Broker
@@ -141,7 +232,11 @@ switch ($IsAdvancedRDSDeployment)
                     Add-RDServer -Server CB -Role 'RDS-GATEWAY' -ConnectionBroker CBName -GatewayExternalFqdn FQDN
                 }
             }
-        }        
+        }  #>     
+
+        Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Delete Scheduled Task KillServerManager' -ScriptBlock {
+            Unregister-ScheduledTask -TaskName 'KillServerManager' -Confirm:$false
+        }
 
         Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Reset ServerManager open at logon' -ScriptBlock {
             Set-ItemProperty -Path HKCU:\Software\Microsoft\ServerManager -Name DoNotOpenServerManagerAtLogon -Value "0x01" -Force

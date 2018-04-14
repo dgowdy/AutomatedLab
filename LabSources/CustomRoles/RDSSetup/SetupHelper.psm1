@@ -4,25 +4,7 @@ function Get-ServerListPath
     $ServerListPath = "$env:USERPROFILE\AppData\Roaming\Microsoft\Windows\ServerManager\ServerList.xml"
     return $ServerListPath
 }
-function Get-RDSADComputer
-{
-    $AllRDSComputers = Get-ADComputer -SearchBase 'OU=RDS,DC=dev,DC=local' -Filter * -SearchScope Subtree | Select-Object -ExpandProperty DNSHostName
-    return $AllRDSComputers
-}
-function Close-ServerManager
-{
-    # Close Servermanager if it is open
-    $ServerManagerProcess = Get-Process -Name ServerManager -ErrorAction SilentlyContinue
-    if ($ServerManagerProcess)
-    {
-        Write-Output 'Stopping ServerManager.'
-        $null = Get-Process -Name ServerManager | ForEach-Object {$_.CloseMainWindow()}
-    }
-    else
-    {
-        Write-Output 'ServerManager is not running. No action needed.'
-    }
-}
+
 function Test-IfServerListExist
 {
     param
@@ -131,10 +113,10 @@ function Add-ServerListEntry
     #$return_GetServerListXMLFile = Get-ServerListXMLFile -ServerListFile $ServerListFile
     
     $return_AllXMLServers = Get-AllServersInServerListFile
-    $return_AllRDSADPCs = Get-RDSADComputer
+    $return_AllRDSADPCs = Get-AllRDSComputers
 
     # Create a New ServerElement for each RDS Server
-    $return_FindIfServerIsInServerListFile = Find-IfServerIsInServerListFile -AllXMLServers $return_AllXMLServers -AllRDSComputers $return_AllRDSADPCs 
+    $return_FindIfServerIsInServerListFile = Find-IfServerIsInServerListFile -AllXMLServers $return_AllXMLServers -AllRDSComputers $return_AllRDSADPCs.ComputerName 
 
     if ($return_FindIfServerIsInServerListFile.Where{$_.Status -eq $true})
     {
@@ -176,8 +158,7 @@ function New-ServerListFile
 #region AD
 function Get-DomainInformation
 {
-    Import-Module ActiveDirectory -ErrorAction Stop
-    $domaininfo = Get-ADDomain
+    $domaininfo = [adsi]""
     return $domaininfo
 }
 
@@ -191,10 +172,9 @@ function Get-RDSADComputer
     )
     
     $AllOUComputers = New-Object -TypeName System.Collections.ArrayList
-
-    Import-Module ActiveDirectory -ErrorAction Stop
+    
     $DomainInformation = Get-DomainInformation
-    $DomainDN = $DomainInformation.DNSHostName
+    $DomainDN = $DomainInformation.distinguishedName
     $OuNameDN = [String]::Concat("OU=$OuName,", "OU=RDS,", $DomainDN)
     $Computers = (Get-ADComputer -Searchbase $OUNameDN -Filter *).DNSHostName
 
@@ -203,7 +183,27 @@ function Get-RDSADComputer
         $row = [PSCustomObject]@{
             ComputerName = $Computer
         }
-        $AllOUComputers.Add($row)
+        $null = $AllOUComputers.Add($row)
+    }
+
+    return $AllOUComputers
+}
+
+function Get-AllRDSComputers
+{
+    $AllOUComputers = New-Object -TypeName System.Collections.ArrayList
+    
+    $DomainInformation = Get-DomainInformation
+    $DomainDN = $DomainInformation.distinguishedName
+    $OuNameDN = [String]::Concat("OU=RDS,", $DomainDN)
+    $Computers = (Get-ADComputer -Searchbase $OUNameDN -Filter *).DNSHostName
+
+    foreach ($Computer in $Computers)
+    {
+        $row = [PSCustomObject]@{
+            ComputerName = $Computer
+        }
+        $null = $AllOUComputers.Add($row)
     }
 
     return $AllOUComputers
@@ -214,7 +214,7 @@ function Get-RDSADComputer
 function Get-RDSDeployment
 {
     Import-Module RemoteDesktop
-    $result = Get-RDSessionCollection -CollectionName "ALRDSCollection" -ErrorAction SilentlyContinue
+    $result = Get-RDServer
 
     if ($result)
     {
