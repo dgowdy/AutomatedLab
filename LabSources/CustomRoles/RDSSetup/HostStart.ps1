@@ -110,8 +110,8 @@ switch ($IsAdvancedRDSDeployment)
         Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Creating DNS Zone for RDS deployment' -ScriptBlock {
             
             # Calculate Zone Name
-            $dnsZone = $args[0].Substring($dnsZone.IndexOf('.') + 1)
-            $dnsname = $args[0].Substring(0, $dnsZone.IndexOf('.'))
+            $dnsZone = $args[0].Substring($args[0].IndexOf('.') + 1)
+            $dnsname = $args[0].Substring(0, $args[0].IndexOf('.'))
 
             # Check if DNS Zone exist
             if (Get-DnsServerZone | Where-Object {$_.ZoneName -eq ('{0}' -f $dnsZone)})
