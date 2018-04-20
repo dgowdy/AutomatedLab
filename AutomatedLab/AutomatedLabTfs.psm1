@@ -5,7 +5,7 @@ function Install-LabTeamFoundationEnvironment
     param
     ( )
 
-    $tfsMachines = Get-LabVm -Role Tfs2015, Tfs2017
+    $tfsMachines = Get-LabVm -Role Tfs2015, Tfs2017, Tfs2018
     $lab = Get-Lab
     $jobs = @()
 
@@ -63,6 +63,8 @@ function Install-LabTeamFoundationEnvironment
 
     Wait-LWLabJob -Job $jobs
 
+    Restart-LabVm -ComputerName $tfsMachines -Wait
+
     Install-LabTeamFoundationServer
 
     Install-LabBuildWorker
@@ -74,7 +76,7 @@ function Install-LabTeamFoundationServer
     param
     ( )
 
-    $tfsMachines = Get-LabVm -Role Tfs2015, Tfs2017 | Sort-Object {($_.Roles | Where-Object Name -like Tfs????).Name} -Descending
+    $tfsMachines = Get-LabVm -Role Tfs2015, Tfs2017, Tfs2018 | Sort-Object {($_.Roles | Where-Object Name -like Tfs????).Name} -Descending
     [string]$sqlServer = Get-LabVm -Role SQLServer2016, SQLServer2017 | Select-Object -First 1
     
     # Assign unassigned build workers to our most current TFS machine
@@ -114,6 +116,16 @@ function Install-LabTeamFoundationServer
         if ($role.Properties.ContainsKey('Port'))
         {
             $tfsPort = $role.Properties['Port']
+        }
+
+        if ((Get-Lab).DefaultVirtualizationEngine -eq 'Azure')
+        {
+            if (-not (Get-LabAzureLoadBalancedPort -ComputerName $machine))
+            {
+                Add-LWAzureLoadBalancedPort -ComputerName $machine
+            }
+
+            $tfsPort = Get-LabAzureLoadBalancedPort -ComputerName $machine
         }
 
         if ($role.Properties.ContainsKey('DbServer'))
@@ -186,17 +198,17 @@ function Install-LabBuildWorker
 
     $buildWorkers = Get-LabVm -Role TfsBuildWorker
 
-    $buildWorkerUri = (Get-Module AutomatedLab -ListAvailable).PrivateData["BuildAgentUri"]
+    $buildWorkerUri = (Get-Module AutomatedLab -ListAvailable)[0].PrivateData["BuildAgentUri"]
     $buildWorkerPath = Join-Path -Path $labsources -ChildPath Tools\TfsBuildWorker.zip
     $download = Get-LabInternetFile -Uri $buildWorkerUri -Path $buildWorkerPath -PassThru
-    Copy-LabFileItem -ComputerName $buildWorkers -Path $download.FullName
+    Copy-LabFileItem -ComputerName $buildWorkers -Path $download.Path
 
     $installationJobs = @()
     foreach ( $machine in $buildWorkers)
     {
         $role = $machine.Roles | Where-Object Name -eq TfsBuildWorker
         $tfsPort = 8080
-        $tfsServer = Get-LabVm -Role Tfs2015, Tfs2017 | Select-Object -First 1
+        $tfsServer = Get-LabVm -Role Tfs2015, Tfs2017, Tfs2018 | Select-Object -First 1
 
         if ($role.Properties.ContainsKey('TfsServer'))
         {
@@ -204,7 +216,7 @@ function Install-LabBuildWorker
             if (-not $tfsServer)
             {
                 Write-ScreenInfo -Message "No TFS server called $($role.Properties['TfsServer']) found in lab." -NoNewLine -Type Warning
-                $tfsServer = Get-LabVM -Role Tfs2015, Tfs2017 | Select-Object -First 1
+                $tfsServer = Get-LabVM -Role Tfs2015, Tfs2017, Tfs2018 | Select-Object -First 1
                 Write-ScreenInfo -Message " Selecting $tfsServer instead." -Type Warning
             }
 
@@ -237,7 +249,7 @@ function Install-LabBuildWorker
 
             if ($configurationProcess.ExitCode -ne 0)
             {
-                Write-Warning -Message "Build worker $env:COMPUTERNAME failed to install. Exit code was $($configurationProcess.ExitCode)"
+                Write-ScreenInfo -Message "Build worker $env:COMPUTERNAME failed to install. Exit code was $($configurationProcess.ExitCode)" -Type Warning
             }
         } -AsJob -Variable (Get-Variable tfsServer, tfsPort, useSsl) -ActivityName "Setting up build agent $machine" -PassThru -NoDisplay
     }
@@ -273,7 +285,7 @@ function New-LabReleasePipeline
         throw 'No lab imported. Please use Import-Lab to import the target lab containing at least one TFS server'
     }
 
-    $tfsvm = Get-LabVm -Role Tfs2015, Tfs2017 | Select-Object -First 1
+    $tfsvm = Get-LabVm -Role Tfs2015, Tfs2017, Tfs2018 | Select-Object -First 1
 
     if ($ComputerName)
     {
@@ -296,12 +308,12 @@ function New-LabReleasePipeline
 
     if ((Get-Lab).DefaultVirtualizationEngine -eq 'Azure')
     {
-        if (-not (Get-LabAzureLoadBalancedPort -Port $tfsPort -ComputerName $tfsvm))
+        if (-not (Get-LabAzureLoadBalancedPort -ComputerName $tfsvm))
         {
-            Add-LWAzureLoadBalancedPort -Port $tfsPort -ComputerName $tfsVm
+            Add-LWAzureLoadBalancedPort -ComputerName $tfsVm
         }
-
-        $tfsPort = Get-LabAzureLoadBalancedPort -Port $tfsPort -ComputerName $tfsvm
+        $originalPort = $tfsPort
+        $tfsPort = Get-LabAzureLoadBalancedPort -ComputerName $tfsvm
         $tfsInstance = $tfsvm.AzureConnectionInfo.DnsName
     }
 
@@ -320,7 +332,7 @@ function New-LabReleasePipeline
         Write-ScreenInfo -Message 'Git is not installed. We will not push any code to the remote repository'
     }
 
-    $project = New-TfsProject -InstanceName $tfsInstance -Port $tfsPort -CollectionName $initialCollection -ProjectName $ProjectName -Credential $credential -UseSsl:$useSsl -SourceControlType Git -TemplateName 'Agile'
+    $project = New-TfsProject -InstanceName $tfsInstance -Port $tfsPort -CollectionName $initialCollection -ProjectName $ProjectName -Credential $credential -UseSsl:$useSsl -SourceControlType Git -TemplateName 'Agile' -Timeout (New-TimeSpan -Minutes 5)
 
     if ($gitBinary)
     {
@@ -329,19 +341,25 @@ function New-LabReleasePipeline
 
         if ((Get-Lab).DefaultVirtualizationEngine -eq 'Azure')
         {
-            $repoUrl = $repoUrl -replace $tfsvm.Name,$tfsvm.AzureConnectionInfo.DnsName
+            $repoUrl = $repoUrl -replace ":$originalPort",":$tfsPort"
+            $repoUrl = $repoUrl -replace $tfsvm.Name, $tfsvm.AzureConnectionInfo.DnsName
         }
         
-        $repoUrl = $repoUrl -f $credential.UserName, $credential.GetNetworkCredential().Password
+        $repoUrl = $repoUrl -f $credential.GetNetworkCredential().UserName, $credential.GetNetworkCredential().Password
+
+        Write-ScreenInfo -Type Verbose -Message "Generated repo url $repoUrl"
+
         $repoparent = Join-Path -Path $locallabsources -ChildPath GitRepositories
         if (-not (Test-Path $repoparent))
         {
+            Write-ScreenInfo -Type Verbose -Message "Creating $repoparent to contain your cloned repos"
             [void] (New-Item -ItemType Directory -Path $repoparent)
         }
 
         $repositoryPath = Join-Path -Path $repoparent -ChildPath (Split-Path -Path $SourceRepository -Leaf)
         if (-not (Test-Path $repositoryPath))
         {
+            Write-ScreenInfo -Type Verbose -Message "Creating $repositoryPath to contain your cloned repo"
             [void] (New-Item -ItemType Directory -Path $repositoryPath)
         }
 
@@ -350,18 +368,59 @@ function New-LabReleasePipeline
 
         if (Join-Path -Path $repositoryPath -ChildPath '.git' -Resolve -ErrorAction SilentlyContinue)
         {
-            Write-Verbose -Message ('There already is a clone of {0} in {1}. Pulling latest changes from remote if possible.' -f $SourceRepository, $repositoryPath)
-            Start-Process -FilePath $gitBinary -ArgumentList @('-c', 'http.sslVerify=false', 'pull', 'origin') -Wait -NoNewWindow
+            Write-ScreenInfo -Type Verbose -Message ('There already is a clone of {0} in {1}. Pulling latest changes from remote if possible.' -f $SourceRepository, $repositoryPath)
+            try
+            {
+                $errorFile = [System.IO.Path]::GetTempFileName()
+                $pullResult = Start-Process -FilePath $gitBinary -ArgumentList @('-c', 'http.sslVerify=false', 'pull', 'origin') -Wait -NoNewWindow -PassThru -RedirectStandardError $errorFile
+
+                if ($pullResult.ExitCode -ne 0)
+                {
+                    Write-ScreenInfo -Type Warning -Message "Could not pull from $SourceRepository. Git returned: $(Get-Content -Path $errorFile)"
+                }
+            }
+            finally
+            {
+                Remove-Item -Path $errorFile -Force -ErrorAction SilentlyContinue
+            }
         }        
         else
         {
-            Write-Verbose -Message ('Cloning {0} in {1}.' -f $SourceRepository, $repositoryPath)
-            Start-Process -FilePath $gitBinary -ArgumentList @('clone', $SourceRepository, $repositoryPath, '--quiet') -Wait -NoNewWindow
+            Write-ScreenInfo -Type Verbose -Message ('Cloning {0} in {1}.' -f $SourceRepository, $repositoryPath)
+            try
+            {
+                $errorFile = [System.IO.Path]::GetTempFileName()
+                $cloneResult = Start-Process -FilePath $gitBinary -ArgumentList @('clone', $SourceRepository, $repositoryPath, '--quiet') -Wait -NoNewWindow -PassThru -RedirectStandardError $errorFile
+
+                if ($cloneResult.ExitCode -ne 0)
+                {
+                    Write-ScreenInfo -Type Warning -Message "Could not clone from $SourceRepository. Git returned: $(Get-Content -Path $errorFile)"
+                }
+            }
+            finally
+            {
+                Remove-Item -Path $errorFile -Force -ErrorAction SilentlyContinue
+            }
+
             Start-Process -FilePath $gitBinary -ArgumentList @('remote', 'add', 'tfs', $repoUrl) -Wait -NoNewWindow            
         }
         
-        Start-Process -FilePath $gitBinary @('-c', 'http.sslVerify=false', 'push', 'tfs', '--all', '--quiet') -Wait -NoNewWindow
-        Write-Verbose -Message ('Pushed code from {0} to remote {1}' -f $SourceRepository, $repoUrl)
+        try
+        {
+            $errorFile = [System.IO.Path]::GetTempFileName()
+            $pushResult = Start-Process -FilePath $gitBinary @('-c', 'http.sslVerify=false', 'push', 'tfs', '--all', '--quiet') -Wait -NoNewWindow -PassThru -RedirectStandardError $errorFile
+
+            if ($pushResult.ExitCode -ne 0)
+            {
+                Write-ScreenInfo -Type Warning -Message "Could not push to $repoUrl. Git returned: $(Get-Content -Path $errorFile)"
+            }
+        }
+        finally
+        {
+            Remove-Item -Path $errorFile -Force -ErrorAction SilentlyContinue
+        }
+        
+        Write-ScreenInfo -Type Verbose -Message ('Pushed code from {0} to remote {1}' -f $SourceRepository, $repoUrl)
 
         Pop-Location
     }
@@ -406,7 +465,7 @@ function Get-LabBuildStep
         throw 'No lab imported. Please use Import-Lab to import the target lab containing at least one TFS server'
     }
 
-    $tfsvm = Get-LabVm -Role Tfs2015, Tfs2017 | Select-Object -First 1
+    $tfsvm = Get-LabVm -Role Tfs2015, Tfs2017, Tfs2018 | Select-Object -First 1
     $useSsl = $tfsVm.InternalNotes.ContainsKey('CertificateThumbprint')
 
     if ($ComputerName)
@@ -428,12 +487,12 @@ function Get-LabBuildStep
 
     if ((Get-Lab).DefaultVirtualizationEngine -eq 'Azure')
     {
-        if (-not (Get-LabAzureLoadBalancedPort -Port $tfsPort -ComputerName $tfsvm))
+        if (-not (Get-LabAzureLoadBalancedPort -ComputerName $tfsvm))
         {
-            Add-LWAzureLoadBalancedPort -Port $tfsPort -ComputerName $tfsVm
+            Add-LWAzureLoadBalancedPort -ComputerName $tfsVm
         }
 
-        $tfsPort = Get-LabAzureLoadBalancedPort -Port $tfsPort -ComputerName $tfsvm
+        $tfsPort = Get-LabAzureLoadBalancedPort -ComputerName $tfsvm
         $tfsInstance = $tfsvm.AzureConnectionInfo.DnsName
     }
 
@@ -460,7 +519,7 @@ function Get-LabReleaseStep
         throw 'No lab imported. Please use Import-Lab to import the target lab containing at least one TFS server'
     }
 
-    $tfsvm = Get-LabVm -Role Tfs2015, Tfs2017 | Select-Object -First 1
+    $tfsvm = Get-LabVm -Role Tfs2015, Tfs2017, Tfs2018 | Select-Object -First 1
     $useSsl = $tfsVm.InternalNotes.ContainsKey('CertificateThumbprint')
 
     if ($ComputerName)
@@ -482,12 +541,12 @@ function Get-LabReleaseStep
 
     if ((Get-Lab).DefaultVirtualizationEngine -eq 'Azure')
     {
-        if (-not (Get-LabAzureLoadBalancedPort -Port $tfsPort -ComputerName $tfsvm))
+        if (-not (Get-LabAzureLoadBalancedPort -ComputerName $tfsvm))
         {
-            Add-LWAzureLoadBalancedPort -Port $tfsPort -ComputerName $tfsVm
+            Add-LWAzureLoadBalancedPort -ComputerName $tfsVm
         }
 
-        $tfsPort = Get-LabAzureLoadBalancedPort -Port $tfsPort -ComputerName $tfsvm
+        $tfsPort = Get-LabAzureLoadBalancedPort -ComputerName $tfsvm
         $tfsInstance = $tfsvm.AzureConnectionInfo.DnsName
     }
 
@@ -514,7 +573,7 @@ function Open-LabTfsSite
         throw 'No lab imported. Please use Import-Lab to import the target lab containing at least one TFS server'
     }
 
-    $tfsvm = Get-LabVm -Role Tfs2015, Tfs2017 | Select-Object -First 1
+    $tfsvm = Get-LabVm -Role Tfs2015, Tfs2017, Tfs2018 | Select-Object -First 1
     $useSsl = $tfsVm.InternalNotes.ContainsKey('CertificateThumbprint')
 
     if ($ComputerName)
@@ -551,10 +610,10 @@ function Open-LabTfsSite
         'https://{0}:{1}@{2}:{3}' -f $credential.GetNetworkCredential().UserName, $credential.GetNetworkCredential().Password, $tfsInstance, $tfsPort
     } 
     else
-     {
-         'http://{0}:{1}@{2}:{3}' -f $credential.GetNetworkCredential().UserName, $credential.GetNetworkCredential().Password, $tfsInstance, $tfsPort
-        }
+    {
+        'http://{0}:{1}@{2}:{3}' -f $credential.GetNetworkCredential().UserName, $credential.GetNetworkCredential().Password, $tfsInstance, $tfsPort
+    }
     
-        Start-Process -FilePath $requestUrl
+    Start-Process -FilePath $requestUrl
 }
 #endregion
