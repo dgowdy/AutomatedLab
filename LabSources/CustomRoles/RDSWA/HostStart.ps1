@@ -52,12 +52,9 @@ switch ($IsAdvancedRDSDeployment)
             Write-Output -Message "RDS Web Access Role is already installed."
         }
         else 
-        {                    
-            Write-Verbose -Message "Installing Feature for RDS Web Access"
-                    
-            Invoke-LabCommand -ComputerName $RDSWAComputerName -ActivityName "Installing RDS Web Access Role on $RDSWAComputerName" -ScriptBlock {
-                Install-WindowsFeature -Name "RDS-Web-Access" -IncludeAllSubFeature -IncludeManagementTools
-            }
+        {   
+            Write-ScreenInfo -Message "Installing Feature for RDS Web Access"                 
+            Install-LabWindowsFeature -ComputerName $RDSWAComputerName -FeatureName "RDS-Web-Access" -IncludeAllSubFeature -IncludeManagementTools
         }
     }
 

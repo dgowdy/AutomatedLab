@@ -52,12 +52,9 @@ switch ($IsAdvancedRDSDeployment)
             Write-Output -Message "RDS Gateway Role is already installed."
         }
         else 
-        {                    
-            Write-Verbose -Message "Installing Feature for RDS Gateway"
-                    
-            Invoke-LabCommand -ComputerName $RDSGWComputerName -ActivityName "Installing RDS Gateway Role on $RDSGWComputerName" -ScriptBlock {
-                Install-WindowsFeature -Name "RDS-Gateway" -IncludeAllSubFeature -IncludeManagementTools
-            }
+        {
+            Write-ScreenInfo -Message "Installing Feature for RDS Gateway"                     
+            Install-LabWindowsFeature -ComputerName $RDSGWComputerName -FeatureName "RDS-Gateway" -IncludeAllSubFeature -IncludeManagementTools
         }
     }
 

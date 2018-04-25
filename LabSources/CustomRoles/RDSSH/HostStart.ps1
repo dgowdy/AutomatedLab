@@ -65,13 +65,11 @@ switch ($IsAdvancedRDSDeployment)
         }
         else 
         {                    
-            Write-Verbose -Message "Installing Feature for RDS Session Host"
-                    
-            Invoke-LabCommand -ComputerName $RDSSHComputerName -ActivityName "Installing RDS Session Host Role on $RDSSHComputerName" -ScriptBlock {
-                Install-WindowsFeature -Name "RDS-RD-Server" -IncludeAllSubFeature -IncludeManagementTools -Restart
-            }
-
-            Wait-LabVMRestart -ComputerName $RDSSHComputerName -DoNotUseCredSsp -ProgressIndicator 30 -TimeoutInMinutes 5
+            Write-ScreenInfo -Message "Installing Feature for RDS Session Host" 
+            Install-LabWindowsFeature -ComputerName $RDSSHComputerName -FeatureName "RDS-RD-Server" -IncludeAllSubFeature -IncludeManagementTools
+            Restart-LabVM -ComputerName $RDSSHComputerName
+            
+            Wait-LabVMRestart -ComputerName $RDSSHComputerName -ProgressIndicator 30 -TimeoutInMinutes 5
         }
     }
 

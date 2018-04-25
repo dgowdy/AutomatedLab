@@ -52,12 +52,9 @@ switch ($IsAdvancedRDSDeployment)
             Write-Output -Message "RDS Licensing is already installed."
         }
         else 
-        {                    
-            Write-Verbose -Message "Installing Feature for RDS Licensing"
-                    
-            Invoke-LabCommand -ComputerName $RDSLICComputerName -ActivityName "Installing RDS Licensing Role on $RDSLICComputerName" -ScriptBlock {
-                Install-WindowsFeature -Name "RDS-Licensing" -IncludeAllSubFeature -IncludeManagementTools
-            }
+        {
+            Write-ScreenInfo -Message "Installing Feature for RDS Licensing"                    
+            Install-LabWindowsFeature -ComputerName $RDSLICComputerName -FeatureName "RDS-Licensing" -IncludeAllSubFeature -IncludeManagementTools
         }
     }
 

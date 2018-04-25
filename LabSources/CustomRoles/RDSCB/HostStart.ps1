@@ -62,11 +62,8 @@ switch ($IsAdvancedRDSDeployment)
                 }
                 else 
                 {                    
-                    Write-Verbose -Message "Installing Feature for RDS Connection Broker"
-                    
-                    Invoke-LabCommand -ComputerName $RDSCBComputerName -ActivityName "Installing Connection Broker Role on $RDSCBComputerName" -ScriptBlock {
-                        Install-WindowsFeature -Name "RDS-Connection-Broker" -IncludeAllSubFeature -IncludeManagementTools
-                    }
+                    Write-ScreenInfo -Message "Installing Feature for RDS Connection Broker"
+                    Install-LabWindowsFeature -ComputerName $RDSCBComputerName -FeatureName "RDS-Connection-Broker" -IncludeAllSubFeature -IncludeManagementTools
                 }
 
                 Invoke-LabCommand -ComputerName $RDSCBComputerName -ActivityName "Add ConnectionBroker $RDSCBComputerName to group G_ConnectionBrokerServers" -ScriptBlock {
@@ -117,11 +114,8 @@ switch ($IsAdvancedRDSDeployment)
                 }
                 else 
                 {                    
-                    Write-Verbose -Message "Installing Feature for RDS Connection Broker"
-                    
-                    Invoke-LabCommand -ComputerName $RDSCBComputerName -ActivityName "Installing Connection Broker Role on $RDSCBComputerName" -ScriptBlock {
-                        Install-WindowsFeature -Name "RDS-Connection-Broker" -IncludeAllSubFeature -IncludeManagementTools
-                    }
+                    Write-ScreenInfo -Message "Installing Feature for RDS Connection Broker"
+                    Install-LabWindowsFeature -ComputerName $RDSCBComputerName -FeatureName "RDS-Connection-Broker" -IncludeAllSubFeature -IncludeManagementTools
                 }
             }
         }
