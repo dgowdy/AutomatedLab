@@ -17,7 +17,7 @@ param
     $LabPath
 )
 
-Import-Lab -Path $LabPath
+Import-Lab -Path $LabPath -NoValidation
 
 switch ($IsAdvancedRDSDeployment)
 {
@@ -42,36 +42,9 @@ switch ($IsAdvancedRDSDeployment)
         }
 
         Restart-LabVM -ComputerName $rootdcname -Wait
+        Wait-LabADReady -ComputerName $rootdcname
                 
-        # Check if AD is reachable
-        $result = Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Check if ad is reachable.' -ScriptBlock {
-            $service = Get-Service adws
-            return $service
-        }
-
-        while ($result.Status -eq 'Stopped')
-        {
-            Write-ScreenInfo -Message 'PowerShell Domain Services not reachable.'
-            $result = Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Check if ad is reachable.' -ScriptBlock {
-                $service = Get-Service adws
-                return $service
-            }
-        }
-
-        # Check if WebService Responds to port request
-        $result = Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Check if AD Web Service port is responding.' -ScriptBlock {
-            $response = Test-NetConnection -Port 9389 -InformationLevel Quiet
-            return $response
-        }
-
-        while ($result.TcpTestSucceeded -eq $false)
-        {
-            $result = Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Check if AD Web Service port is responding.' -ScriptBlock {
-                $response = Test-NetConnection -Port 9389
-                return $response
-            }
-        }
-
+        
         # Create Scheduled Task to Close ServerManager
         Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Create Scheduled Task to gracefully close ServerManager' -ScriptBlock {
             $UserName = $Env:USERNAME
@@ -102,9 +75,9 @@ switch ($IsAdvancedRDSDeployment)
             }
         } -Function $module
 
-        <# $AllCBServers = Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Get All Connection Broker Servers.' -ScriptBlock {
-            Get-RDSADComputer -OUName "RDSCB"
-        } -Function $module
+        $AllWAServers = Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Get All Connection Broker Servers.' -ScriptBlock {
+            Get-RDSADComputer -OUName "RDSWA"
+        } -Function $module -PassThru -NoDisplay
 
         # Add Dns Zone and IP Adresses of all Connection Broker Servers to it. (Round Robin)
         Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Creating DNS Zone for RDS deployment' -ScriptBlock {
@@ -112,31 +85,44 @@ switch ($IsAdvancedRDSDeployment)
             # Calculate Zone Name
             $dnsZone = $args[0].Substring($args[0].IndexOf('.') + 1)
             $dnsname = $args[0].Substring(0, $args[0].IndexOf('.'))
-
+            
             # Check if DNS Zone exist
             if (Get-DnsServerZone | Where-Object {$_.ZoneName -eq ('{0}' -f $dnsZone)})
-            {
-                # Create the records
-                foreach ($CBServer in $args[1])
+            {                
+                if (-not (Get-DnsServerResourceRecord -Name $dnsname -ZoneName $dnsZone -ErrorAction SilentlyContinue))
                 {
-                    $ipaddress = (Get-DnsServerResourceRecord -ZoneName $dnsZone -Name $CBServer).RecordData.IPv4Address.IPAddressToString
-                    Add-DnsServerResourceRecord -ZoneName $dnsZone -IPv4Address $ipaddress -A -Name $dnsname
-                }
+                    for ($i = 0; $i -lt $args[1].Count; $i++)
+                    {
+                        $IP = $args[1][$i].IPAddress
+                        Add-DnsServerResourceRecord -ZoneName $dnsZone -IPv4Address $IP  -A -Name $dnsname
+                    } 
+                }              
             }
             else
             {
-                # Create the zone and then the records
                 Add-DnsServerPrimaryZone -Name $dnsZone -ReplicationScope Forest
-                foreach ($CBServer in $args[1])
+                
+                for ($i = 0; $i -lt $args[1].Count; $i++)
                 {
-                    $ipaddress = (Get-DnsServerResourceRecord -ZoneName $dnsZone -Name $CBServer).RecordData.IPv4Address.IPAddressToString
-                    Add-DnsServerResourceRecord -ZoneName $dnsZone -IPv4Address $ipaddress -A -Name $dnsname
+                    $IP = $args[1][$i].IPAddress
+                    Add-DnsServerResourceRecord -ZoneName $dnsZone -IPv4Address $IP -A -Name $dnsname
                 }
             }
 
-        } -Function $module -ArgumentList $RDSDNSName, $AllCBServers
+        } -Function $module -ArgumentList $RDSDNSName, $AllWAServers
 
-        $activeRDSDeployment = $false
+        Write-ScreenInfo -Message 'Adding the DNS Domain of the RDS deployment to the hosts file.'
+        
+        if (-not(Get-HostEntry -Section (Get-Lab).Name -HostName $RDSDNSName))
+        {
+            foreach ($WAServer in $AllWAServers)
+            {
+                $IP = $WAServer.IPAddress
+                $null = Add-HostEntry -Section (Get-Lab).Name -IpAddress $IP -HostName $RDSDNSName
+            }
+        }
+        
+        <#$activeRDSDeployment = $false
         
         foreach ($CBServer in $AllCBServers)
         {

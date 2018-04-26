@@ -18,7 +18,7 @@ param
     $LabPath
 )
 
-Import-Lab -Path $LabPath
+Import-Lab -Path $LabPath -NoValidation
 
 switch ($IsAdvancedRDSDeployment)
 {
@@ -106,7 +106,7 @@ switch ($IsAdvancedRDSDeployment)
                     }
                 }
 
-                $isInstalled_CBRole = (Get-LabWindowsFeature -FeatureName "RDS-Connection-Broker" -ComputerName $RDSCBComputerName).State
+                $isInstalled_CBRole = (Get-LabWindowsFeature -FeatureName "RDS-Connection-Broker" -ComputerName $RDSCBComputerName -NoDisplay).InstallState
 
                 if ($isInstalled_CBRole -eq "Installed") 
                 {

@@ -176,12 +176,15 @@ function Get-RDSADComputer
     $DomainInformation = Get-DomainInformation
     $DomainDN = $DomainInformation.distinguishedName
     $OuNameDN = [String]::Concat("OU=$OuName,", "OU=RDS,", $DomainDN)
-    $Computers = (Get-ADComputer -Searchbase $OUNameDN -Filter *).DNSHostName
+    $Computers = (Get-ADComputer -Searchbase $OUNameDN -Filter * -Properties *)
 
     foreach ($Computer in $Computers)
     {
         $row = [PSCustomObject]@{
-            ComputerName = $Computer
+            DNSHostName  = $Computer.DNSHostName
+            ComputerName = $Computer.Name
+            IPAddress    = $Computer.IPv4Address
+            OS           = $Computer.OperatingSystem
         }
         $null = $AllOUComputers.Add($row)
     }

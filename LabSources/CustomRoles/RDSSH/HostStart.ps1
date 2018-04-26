@@ -18,7 +18,7 @@ param
     $LabPath
 )
 
-Import-Lab -Path $LabPath
+Import-Lab -Path $LabPath -NoValidation
 
 switch ($IsAdvancedRDSDeployment)
 {
@@ -57,7 +57,7 @@ switch ($IsAdvancedRDSDeployment)
             }
         } -ArgumentList $IsSessionBasedDesktop
 
-        $isInstalled_CBRole = (Get-LabWindowsFeature -FeatureName "RDS-RD-Server" -ComputerName $RDSSHComputerName).State
+        $isInstalled_CBRole = (Get-LabWindowsFeature -FeatureName "RDS-RD-Server" -ComputerName $RDSSHComputerName -NoDisplay).InstallState
 
         if ($isInstalled_CBRole -eq "Installed") 
         {
@@ -67,9 +67,7 @@ switch ($IsAdvancedRDSDeployment)
         {                    
             Write-ScreenInfo -Message "Installing Feature for RDS Session Host" 
             Install-LabWindowsFeature -ComputerName $RDSSHComputerName -FeatureName "RDS-RD-Server" -IncludeAllSubFeature -IncludeManagementTools
-            Restart-LabVM -ComputerName $RDSSHComputerName
-            
-            Wait-LabVMRestart -ComputerName $RDSSHComputerName -ProgressIndicator 30 -TimeoutInMinutes 5
+            Restart-LabVM -ComputerName $RDSSHComputerName -Wait
         }
     }
 
