@@ -14,7 +14,32 @@ param
 
     [Parameter(Mandatory)]
     [String]
-    $LabPath
+    $LabPath,
+
+    [Parameter(Mandatory)]
+    [String]
+    [ValidateSet('DoNotUse', 'Custom', 'Automatic')]
+    $GatewayMode,
+
+    [Parameter(Mandatory = $false)]
+    [String]
+    [ValidateSet('Password', 'AllowUserToSelectDuringConnection', 'Smartcard')]
+    $LogOnMethod,
+
+    [Parameter(Mandatory = $false)]
+    [String]
+    [ValidateSet('Yes', 'No')]
+    $ByPassLocal,
+
+    [Parameter(Mandatory = $false)]
+    [String]
+    [ValidateSet('Yes', 'No')]
+    $UseCachedCredentials,
+
+    [Parameter(Mandatory)]
+    [String]
+    [ValidateSet('PerDevice', 'PerUser', 'NotConfigured')]
+    $LicensingMode
 )
 
 Import-Lab -Path $LabPath -NoValidation
@@ -23,6 +48,7 @@ switch ($IsAdvancedRDSDeployment)
 {
     'Yes'
     {
+        #region Import SetupHelper Module
         if (Get-Module -Name SetupHelper -ErrorAction SilentlyContinue)
         {
             Remove-Module SetupHelper
@@ -34,9 +60,11 @@ switch ($IsAdvancedRDSDeployment)
         }
                 
         $module = Get-Command -Module SetupHelper
+        #endregion Import SetupHelper Module
 
         $rootdcname = Get-LabVM -Role RootDC | Select-Object -First 1 -ExpandProperty Name
 
+        #region ServerManager Magic
         Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Open Server Manger at Startup' -ScriptBlock {
             Set-ItemProperty -Path 'HKCU:\Software\Microsoft\ServerManager' -Name DoNotOpenServerManagerAtLogon -Value "0x0" -Force
         }
@@ -44,8 +72,6 @@ switch ($IsAdvancedRDSDeployment)
         Restart-LabVM -ComputerName $rootdcname -Wait
         Wait-LabADReady -ComputerName $rootdcname
                 
-        
-        # Create Scheduled Task to Close ServerManager
         Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Create Scheduled Task to gracefully close ServerManager' -ScriptBlock {
             $UserName = $Env:USERNAME
             $Domain = $env:USERDNSDOMAIN
@@ -74,11 +100,22 @@ switch ($IsAdvancedRDSDeployment)
                 Add-ServerListEntry
             }
         } -Function $module
+        #endregion ServerManager Magic
 
-        $AllWAServers = Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Get All Connection Broker Servers.' -ScriptBlock {
+        # Install RSAT-Tools For the RDS Deployment
+        Install-LabWindowsFeature -ComputerName $rootdcname -FeatureName "RSAT-RDS-Tools" -IncludeAllSubFeature -IncludeManagementTools
+
+        #region WA and CB Server Retrival
+        $AllWAServers = Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Get All Web Applications Servers.' -ScriptBlock {
             Get-RDSADComputer -OUName "RDSWA"
         } -Function $module -PassThru -NoDisplay
 
+        $AllCBServers = Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Get All Connection Broker Servers.' -ScriptBlock {
+            Get-RDSADComputer -OUName "RDSCB"
+        } -Function $module -PassThru -NoDisplay
+        #endregion WA and CB Server Retrival
+
+        #region DNS Configuration
         # Add Dns Zone and IP Adresses of all Connection Broker Servers to it. (Round Robin)
         Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Creating DNS Zone for RDS deployment' -ScriptBlock {
             
@@ -110,7 +147,9 @@ switch ($IsAdvancedRDSDeployment)
             }
 
         } -Function $module -ArgumentList $RDSDNSName, $AllWAServers
+        #endregion DNS Configuration
 
+        #region HostsFile
         Write-ScreenInfo -Message 'Adding the DNS Domain of the RDS deployment to the hosts file.'
         
         if (-not(Get-HostEntry -Section (Get-Lab).Name -HostName $RDSDNSName))
@@ -121,68 +160,191 @@ switch ($IsAdvancedRDSDeployment)
                 $null = Add-HostEntry -Section (Get-Lab).Name -IpAddress $IP -HostName $RDSDNSName
             }
         }
-        
-        <#$activeRDSDeployment = $false
+        #endregion HostsFile
+
+        #region Check for active Deployment
+        $activeRDSDeployment = $false
         
         foreach ($CBServer in $AllCBServers)
         {
-            $result_rdsdeployment = Invoke-LabCommand -ComputerName $CBServer -ActivityName "Check on Connection Broker $CBServer if we have a RDSDeployment" -ScriptBlock {
+            $CBServerName = $CBServer.ComputerName
+
+            $result_rdsdeployment = Invoke-LabCommand -ComputerName $CBServerName -ActivityName "Check on Connection Broker $CBServer if we have a RDSDeployment" -ScriptBlock {
                 Get-RDSDeployment
-            } -Function $module
+            } -Function $module -PassThru -NoDisplay
 
             if ($result_rdsdeployment)
             {
                 $activeRDSDeployment = $true
             }
         }
-        
+        #endregion Check for active Deployment
+
         if ($activeRDSDeployment)
         {
             Write-ScreenInfo -Message "We already have a RDS Deployment."
         }
         else
         {
+            #region Server Information
             $allGatewayServers = @()
             $allGatewayServers = Invoke-LabCommand -ComputerName $rootdcname -ActivityName ('Getting all Gateway Servers from {0}' -f $rootdcname) -ScriptBlock {
                 Get-RDSADComputer -OUName "RDSGW"
-            }
+            } -PassThru -NoDisplay
 
             $allSessionHostServers = @()
             $allSessionHostServers = Invoke-LabCommand -ComputerName $rootdcname -ActivityName ('Getting all Session Host Servers from {0}' -f $rootdcname) -ScriptBlock {
                 Get-RDSADComputer -OUName "RDSSH"
-            }
+            } -PassThru -NoDisplay
 
             $allSessionBasedDesktopServers = @()
             $allSessionBasedDesktopServers = Invoke-LabCommand -ComputerName $rootdcname -ActivityName ('Getting all Session Based Desktop Servers from {0}' -f $rootdcname) -ScriptBlock {
-                Get-RDSADComputer -OUName "RDSSBD"
-            }
+                Get-RDSADComputer -OUName "RDSBD"
+            } -PassThru -NoDisplay
 
-            $allWebAccessServers = @()
-            $allWebAccessServers = Invoke-LabCommand -ComputerName $rootdcname -ActivityName ('Getting all Web Access Servers from {0}' -f $rootdcname) -ScriptBlock {
-                Get-RDSADComputer -OUName "RDSSWA"
-            }
+            $allLicenseServers = @()
+            $allLicenseServers = Invoke-LabCommand -ComputerName $rootdcname -ActivityName ('Getting all License Servers from {0}' -f $rootdcname) -ScriptBlock {
+                Get-RDSADComputer -OUName "RDSLIC"
+            } -PassThru -NoDisplay
 
-            $AllSessionHostServers = @()
+            $AllSessionHostServersForDeployment = @()
 
             foreach ($SessionHostServer in $allSessionHostServers)
             {
-                $AllSessionHostServers += $SessionHostServer
+                $AllSessionHostServersForDeployment += $SessionHostServer
             }
 
             foreach ($SessionBasedDesktopServer in $allSessionBasedDesktopServers)
             {
-                $AllSessionHostServers += $SessionBasedDesktopServer
+                $AllSessionHostServersForDeployment += $SessionBasedDesktopServer
             }
 
-            $firstwa = $allWebAccessServers | Select-Object -First 1
+            $firstwa = $AllWAServers | Select-Object -First 1
             $firstcb = $AllCBServers | Select-Object -First 1
+            #endregion Server Information
 
-            #TODO: ConnectionBroker Problem. Only One Server can be deployed as connection Broker in the first Step
+            #region Create RDS Deployment
             Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Create New RDS Deployment' -ScriptBlock {
-                New-RDSessionDeployment -ConnectionBroker $args[2] -WebAccessServer $args[1] -SessionHost $args[0] 
-            } -ArgumentList $AllSessionHostServers, $firstwa, $firstcb
+                New-RDSessionDeployment -ConnectionBroker $args[2].DNSHostName -WebAccessServer $args[1].DNSHostName -SessionHost $args[0].DNSHostName 
+            } -ArgumentList $AllSessionHostServersForDeployment, $firstwa, $firstcb
+            #endregion Create RDS Deployment
 
-            if ($ConnectionBrokerHighAvailabilty -eq 'Yes')
+            #region Register and Configure GatewayServers
+            if ($UseCachedCredentials -eq 'Yes')
+            {
+                $UseCachedCredentials = $true 
+            } 
+            else
+            {
+                $UseCachedCredentials = $false
+            }
+
+            if ($ByPassLocal -eq 'Yes')
+            {
+                $ByPassLocal = $true
+            }
+            else
+            {
+                $ByPassLocal = $false             
+            }            
+
+            foreach ($GatewayServer in $allGatewayServers)
+            {
+                $GatewayServerName = $GatewayServer.ComputerName
+
+                Invoke-LabCommand -ComputerName $rootdcname -ActivityName ('Adding {0} as Gateway Server.' -f $GatewayServer.DNSHostName) -ScriptBlock {
+                    $param = @{
+                        Server              = $args[0].DNSHostName 
+                        Role                = 'RDS-GATEWAY' 
+                        ConnectionBroker    = $args[1].DNSHostName 
+                        GatewayExternalFqdn = $args[2] 
+                        ErrorAction         = 'SilentlyContinue'
+                    }
+                    
+                    Add-RDServer @param
+                } -ArgumentList $GatewayServer, $firstcb, $RDSDNSName
+
+                Invoke-LabCommand -ComputerName $rootdcname -ActivityName ('Configuring the Gateway Server {0}.' -f $GatewayServer.DNSHostName) -ScriptBlock {
+                    $param = @{
+                        GatewayMode          = $args[2] 
+                        LogonMethod          = $args[1] 
+                        UseCachedCredentials = $args[3] 
+                        BypassLocal          = $args[4]
+                        GatewayExternalFqdn  = $args[5] 
+                        ConnectionBroker     = $args[0].DNSHostName
+                        Force                = $true
+                    }
+                    
+                    Set-RDDeploymentGatewayConfiguration @param
+                } -ArgumentList $firstcb, $LogOnMethod, $GatewayMode, $UseCachedCredentials, $ByPassLocal, $RDSDNSName
+
+                Invoke-LabCommand -ComputerName $GatewayServerName -ActivityName ('Adding {0} to the GatewayFarm' -f $GatewayServerName) -ScriptBlock {
+                    Import-Module RemoteDesktopServices
+                    Set-Location RDS:\GatewayServer\GatewayFarm\Servers\
+                    New-Item -Name $($args[0].DNSHostName)
+                } -ArgumentList $GatewayServer
+            }
+            #endregion Register and Configure GatewayServers
+
+            #region Register and Configure LicenseServers
+            foreach ($LicenseServer in $allLicenseServers)
+            {
+                Invoke-LabCommand -ComputerName $rootdcname -ActivityName ('Adding {0} as License Server.' -f $LicenseServer.DNSHostName) -ScriptBlock {
+                    Add-RDServer -Server $args[0].DNSHostName -Role 'RDS-LICENSING' -ConnectionBroker $args[1].DNSHostName -ErrorAction SilentlyContinue
+                } -ArgumentList $LicenseServer, $firstcb
+
+                Invoke-LabCommand -ComputerName $rootdcname -ActivityName ('Configure License Mode to {0}' -f $LicensingMode) -ScriptBlock {
+                    Set-RDLicenseConfiguration -Mode $args[0] -Force -ConnectionBroker $args[1].DNSHostName
+                } -ArgumentList $LicensingMode, $firstcb
+            }
+            #endregion Register and Configure LicenseServers
+
+            #region Certificates
+            $RootCA = Get-LabIssuingCA | Select-Object -First 1
+
+            If ($RootCA)
+            {
+                $param = @{
+                    Subject      = "CN=$RDSDNSName" 
+                    SAN          = $RDSDNSName 
+                    OnlineCA     = $RootCA 
+                    TemplateName = "WebServer" 
+                    ComputerName = $rootdcname 
+                    PassThru     = $true
+                }
+
+                $cert = Request-LabCertificate @param
+                $mypwd = ConvertTo-SecureString -String "Passw0rd!" -Force -AsPlainText
+
+                Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Export the certificate to C:\Tools' -ScriptBlock {                    
+                    Get-ChildItem -Path Cert:\LocalMachine\My\$($args[0].Thumbprint) | Export-PfxCertificate -FilePath C:\Tools\RDS.pfx -Password $args[1]
+                } -ArgumentList $cert, $mypwd
+
+                # Add Certificates to each RDS Role
+                Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Adding the exported certificate to the RDGateway Role' -ScriptBlock {
+                    Set-RDCertificate -Role RDGateway -ImportPath C:\Tools\RDS.pfx -Password $args[0] -ConnectionBroker $args[1].DNSHostName -Force
+                } -ArgumentList $mypwd, $firstcb
+
+                Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Adding the exported certificate to the RDWebAccess Role' -ScriptBlock {
+                    Set-RDCertificate -Role RDWebAccess -ImportPath C:\Tools\RDS.pfx -Password $args[0] -ConnectionBroker $args[1].DNSHostName -Force
+                } -ArgumentList $mypwd, $firstcb
+
+                Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Adding the exported certificate to the RDRedirector Role' -ScriptBlock {
+                    Set-RDCertificate -Role RDRedirector -ImportPath C:\Tools\RDS.pfx -Password $args[0] -ConnectionBroker $args[1].DNSHostName -Force
+                } -ArgumentList $mypwd, $firstcb
+
+                Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Adding the exported certificate to the RDPublishing Role' -ScriptBlock {
+                    Set-RDCertificate -Role RDPublishing -ImportPath C:\Tools\RDS.pfx -Password $args[0] -ConnectionBroker $args[1].DNSHostName -Force
+                } -ArgumentList $mypwd, $firstcb
+            }
+            else
+            {
+                Write-ScreenInfo -Message 'No Lab RootCA found. No certificate will be used for the RDS Deployment.'
+            } 
+            #endregion Certificates
+
+            #region TODO
+            <#if ($ConnectionBrokerHighAvailabilty -eq 'Yes')
             {
                 #Is SQL Server in Lab Deployment ?
                 $ISQLServer = Get-LabVM | Where-Object {$_.Roles -like "SQLServer*"}
@@ -203,23 +365,17 @@ switch ($IsAdvancedRDSDeployment)
                 {                    
                     $i = 1
 
-                    #TODO: Change ComputerName, Count Variable whitch Connection Broker is added
                     Invoke-LabCommand -ComputerName $rootdcname -ActivityName "Adding $i additional Connection Broker Server." -ScriptBlock {
                         Add-RDServer -Server $args[0] -Role 'RDS-CONNECTION-BROKER' -ConnectionBroker $args[1]
                     } -ArgumentList $CBServer, $firstcb
                 }
 
                 #TODO: Configure HA for Connection Broker
-            }
+            }#>
+            #endregion TODO            
+        }     
 
-            foreach ($GatewayServer in $allGatewayServers)
-            {
-                Invoke-LabCommand -ComputerName $rootdcname -ActivityName ('Adding {0} as Gateway Server.' -f $GatewayServer) -ScriptBlock {
-                    Add-RDServer -Server CB -Role 'RDS-GATEWAY' -ConnectionBroker CBName -GatewayExternalFqdn FQDN
-                }
-            }
-        }  #>     
-
+        #region Remove ServerManager from Autostart
         Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Delete Scheduled Task KillServerManager' -ScriptBlock {
             Unregister-ScheduledTask -TaskName 'KillServerManager' -Confirm:$false
         }
@@ -227,6 +383,7 @@ switch ($IsAdvancedRDSDeployment)
         Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Reset ServerManager open at logon' -ScriptBlock {
             Set-ItemProperty -Path HKCU:\Software\Microsoft\ServerManager -Name DoNotOpenServerManagerAtLogon -Value "0x01" -Force
         }
+        #endregion Remove ServerManager from Autostart
     }
 
     'No'
