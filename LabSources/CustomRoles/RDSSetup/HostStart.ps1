@@ -190,22 +190,22 @@ switch ($IsAdvancedRDSDeployment)
             $allGatewayServers = @()
             $allGatewayServers = Invoke-LabCommand -ComputerName $rootdcname -ActivityName ('Getting all Gateway Servers from {0}' -f $rootdcname) -ScriptBlock {
                 Get-RDSADComputer -OUName "RDSGW"
-            } -PassThru -NoDisplay
+            } -PassThru -NoDisplay -Function $module
 
             $allSessionHostServers = @()
             $allSessionHostServers = Invoke-LabCommand -ComputerName $rootdcname -ActivityName ('Getting all Session Host Servers from {0}' -f $rootdcname) -ScriptBlock {
                 Get-RDSADComputer -OUName "RDSSH"
-            } -PassThru -NoDisplay
+            } -PassThru -NoDisplay -Function $module
 
             $allSessionBasedDesktopServers = @()
             $allSessionBasedDesktopServers = Invoke-LabCommand -ComputerName $rootdcname -ActivityName ('Getting all Session Based Desktop Servers from {0}' -f $rootdcname) -ScriptBlock {
                 Get-RDSADComputer -OUName "RDSBD"
-            } -PassThru -NoDisplay
+            } -PassThru -NoDisplay -Function $module
 
             $allLicenseServers = @()
             $allLicenseServers = Invoke-LabCommand -ComputerName $rootdcname -ActivityName ('Getting all License Servers from {0}' -f $rootdcname) -ScriptBlock {
                 Get-RDSADComputer -OUName "RDSLIC"
-            } -PassThru -NoDisplay
+            } -PassThru -NoDisplay -Function $module
 
             $AllSessionHostServersForDeployment = @()
 
@@ -342,6 +342,20 @@ switch ($IsAdvancedRDSDeployment)
                 Write-ScreenInfo -Message 'No Lab RootCA found. No certificate will be used for the RDS Deployment.'
             } 
             #endregion Certificates
+
+            #region Create Domain Local Group for all RDS users
+            Invoke-LabCommand -ComputerName $rootdcname -ActivityName "Create Domain Local Group for all RDS Users" -ScriptBlock {
+                Import-Module ActiveDirectory
+                $DomainInfo = Get-DomainInformation
+                $DomainDN = $DomainInfo.distinguishedName
+                $OuNameDN = [String]::Concat("OU=RDSGroups,", "OU=RDS,", $DomainDN)
+                New-ADGroup -Name "DL_RDSUsers" -SamAccountName "DL_RDSUsers" -GroupCategory Security -GroupScope DomainLocal -DisplayName "DL_RDSUsers" -Path $OuNameDN
+            } -Function $module -NoDisplay
+            #endregion Create Domain Local Group for all RDS users
+
+            #TODO: Add Group to Connection Authorization Policy
+
+            #TODO: Clean Resource Authorization Policies. Create a Own. Add the Group to the newly created Policy. Network Resource -> Allow users to connect to any network resource
 
             #region TODO
             <#if ($ConnectionBrokerHighAvailabilty -eq 'Yes')

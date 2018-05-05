@@ -27,7 +27,7 @@ function New-OUSubfolderStructure
     }
 }
 
-function Get-OUState()
+function Get-OUState
 {
     Param
     (
@@ -47,7 +47,7 @@ function Get-OUState()
     }
 }
 
-function Get-ADGroupState()
+function Get-ADGroupState
 {
     Param
     (

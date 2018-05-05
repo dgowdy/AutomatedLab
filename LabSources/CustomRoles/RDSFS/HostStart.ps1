@@ -18,13 +18,27 @@ param
     $RoamingProfilePath,
 
     [Parameter(Mandatory = $false, ParameterSetName = 'UserProfileDisks')]
+    [String]
+    $SessionBasedDesktopRoamingProfilePath,
+
+    [Parameter(Mandatory = $false, ParameterSetName = 'UserProfileDisks')]
     [ValidateSet('Yes', 'No')]
     [String]
     $UseUserProfileDisks,
 
     [Parameter(Mandatory = $false, ParameterSetName = 'UserProfileDisks')]
     [String]
-    $UserProfileDiskPath
+    $UserProfileDiskPath,
+
+    [Parameter(Mandatory = $false, ParameterSetName = 'RoamingProfile')]
+    [Parameter(Mandatory = $false, ParameterSetName = 'UserProfileDisks')]
+    [ValidateSet('Yes', 'No')]
+    [String]
+    $HasSessionBasedDesktop,
+
+    [Parameter(Mandatory = $false, ParameterSetName = 'UserProfileDisks')]
+    [String]
+    $SessionBasedDesktopUserProfileDiskPath
 )
 
 Import-Lab -Path $LabPath
@@ -72,6 +86,17 @@ switch ($IsAdvancedRDSDeployment)
                 Invoke-LabCommand -ComputerName $FileserverName -ActivityName 'Share Roaming Profile Path to everyone' -ScriptBlock {
                     New-SmbShare -Path $args[0] -Name "RoamingProfiles$" -FullAccess Everyone -Description 'Roaming Profile Path for RDS deployment.'
                 } -ArgumentList $RoamingProfilePath
+
+                if ($HasSessionBasedDesktop -eq 'Yes')
+                {
+                    Invoke-LabCommand -ComputerName $FileserverName -ActivityName 'Create Roaming Profile Path for Session Based Desktop' -ScriptBlock {
+                        New-Item -Path $args[0] -ItemType Directory -Force
+                    } -ArgumentList $SessionBasedDesktopRoamingProfilePath
+                
+                    Invoke-LabCommand -ComputerName $FileserverName -ActivityName 'Share Roaming Profile Path for Session Based Desktop to everyone' -ScriptBlock {
+                        New-SmbShare -Path $args[0] -Name "SBRoamingProfiles$" -FullAccess Everyone -Description 'Roaming Profile Path for RDS deployment.'
+                    } -ArgumentList $SessionBasedDesktopRoamingProfilePath
+                }                
             }
         }
         
@@ -86,6 +111,17 @@ switch ($IsAdvancedRDSDeployment)
                 Invoke-LabCommand -ComputerName $FileserverName -ActivityName 'Share User Profile Disk Path to everyone' -ScriptBlock {
                     New-SmbShare -Path $args[0] -Name "UserProfileDisks$" -FullAccess Everyone -Description 'User Profile Disk Path for RDS deployment.'
                 } -ArgumentList $UserProfileDiskPath
+
+                if ($HasSessionBasedDesktop -eq 'Yes')
+                {
+                    Invoke-LabCommand -ComputerName $FileserverName -ActivityName 'Create User Profile Disk Path' -ScriptBlock {
+                        New-Item -Path $args[0] -ItemType Directory -Force
+                    } -ArgumentList $SessionBasedDesktopUserProfileDiskPath
+                
+                    Invoke-LabCommand -ComputerName $FileserverName -ActivityName 'Share User Profile Disk Path to everyone' -ScriptBlock {
+                        New-SmbShare -Path $args[0] -Name "SBUserProfileDisks$" -FullAccess Everyone -Description 'User Profile Disk Path for RDS deployment.'
+                    } -ArgumentList $SessionBasedDesktopUserProfileDiskPath
+                }
             }
         }
 
