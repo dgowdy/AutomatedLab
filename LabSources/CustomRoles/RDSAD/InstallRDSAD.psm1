@@ -78,7 +78,7 @@ function New-ADStructure
 
     $dn = (Get-ADDomain).DistinguishedName
     $dn_rds = [String]::Concat("OU=RDS,", $dn)
-    $subfolders = "RDSBD", "RDSFS", "RDSGW", "RDSWA", "RDSSH", "RDSGroups", "RDSCB", "RDSLIC"
+    $subfolders = "RDSBD", "RDSFS", "RDSGW", "RDSSH", "RDSGroups", "RDSCB", "RDSLIC"
 
     try
     {

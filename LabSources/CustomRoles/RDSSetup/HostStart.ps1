@@ -108,7 +108,7 @@ switch ($IsAdvancedRDSDeployment)
 
         #region WA and CB Server Retrival
         $AllWAServers = Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Get All Web Applications Servers.' -ScriptBlock {
-            Get-RDSADComputer -OUName "RDSWA"
+            Get-RDSADComputer -OUName "RDSGW"
         } -Function $module -PassThru -NoDisplay
 
         $AllCBServers = Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Get All Connection Broker Servers.' -ScriptBlock {
@@ -155,11 +155,10 @@ switch ($IsAdvancedRDSDeployment)
         
         if (-not(Get-HostEntry -Section (Get-Lab).Name -HostName $RDSDNSName))
         {
-            foreach ($GWServer in $allGatewayServers)
-            {
-                $IP = $GWServer.IPAddress
-                $null = Add-HostEntry -Section (Get-Lab).Name -IpAddress $IP -HostName $RDSDNSName
-            }
+            $FirstGW = $allGatewayServers | Select-Object -First 1
+
+            $IP = $FirstGW.IPAddress
+            $null = Add-HostEntry -Section (Get-Lab).Name -IpAddress $IP -HostName $RDSDNSName
         }
         #endregion HostsFile
 
@@ -245,6 +244,7 @@ switch ($IsAdvancedRDSDeployment)
                     }
 
                     Set-WebConfigurationProperty @param
+                    iisreset
                 } -NoDisplay -ArgumentList $RDSDNSName
             }
             #endregion Configure Web Access Servers
