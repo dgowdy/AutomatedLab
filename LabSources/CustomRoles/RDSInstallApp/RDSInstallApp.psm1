@@ -1,11 +1,22 @@
-
-function Install-LabRDSApp
+function Publish-LabRDSApp
 {
     [CmdletBinding()]
     param 
     (
         # The RDS App Name (only for Logging)
         [Parameter(Mandatory)]
+        [ValidateScript(
+            {               
+                if ($_ -match "[$([Regex]::Escape('/\[:;|=,+*?<>') + '\]' + '\"')]")
+                {
+                    return $false
+                }
+                else
+                {
+                    return $true
+                }
+            }
+        )]
         [String]
         $RDSAppName,
         
@@ -29,11 +40,12 @@ function Install-LabRDSApp
         [string]
         $RDSAppDownloadUri,
 
-        # The name of one DC in the lab
         [Parameter(Mandatory)]
         [string[]]
         $RDSSessionHostServer
     )
+
+    #region Install Software
 
     Write-ScreenInfo -Message "Check if $RDSAppExecutableName is in $RDSAppPath"
     
@@ -42,9 +54,9 @@ function Install-LabRDSApp
     if (Test-Path -Path $AppPath)
     {
         foreach ($RDSSHS in $RDSSessionHostServer)
-        {
+        {            
             Write-ScreenInfo -Message "Install $RDSAppName on Session Host Server $RDSSessionHostServer"
-            Install-LabSoftwarePackage -ComputerName $RDSSHS -Path $AppPath -CommandLine $RDSAppPathArguments   
+            Install-LabSoftwarePackage -ComputerName $RDSSHS -Path $AppPath -CommandLine $RDSAppPathArguments                
         }        
     }
     else
@@ -53,17 +65,21 @@ function Install-LabRDSApp
         if ($PSBoundParameters.ContainsKey('RDSAppDownloadUri'))
         {
             Write-ScreenInfo -Message "Downloading $RDSAppName from the following URL: $RDSAppDownloadUri"
-            $AppObject = Get-LabInternetFile -Uri $RDSAppDownloadUri -Path $RDSAppPath
+            $AppObject = Get-LabInternetFile -Uri $RDSAppDownloadUri -Path $RDSAppPath -PassThru
 
             foreach ($RDSSHS in $RDSSessionHostServer)
-            {
-                Write-ScreenInfo -Message "Install $RDSAppName on Session Host Server $RDSSessionHostServer"
-                Install-LabSoftwarePackage -ComputerName $RDSSHS -Path $AppObject.FullName -CommandLine $RDSAppPathArguments   
+            {                
+                Install-LabSoftwarePackage -ComputerName $RDSSHS -Path $AppObject.FullName -CommandLine $RDSAppPathArguments       
             }
         }
         else
         {
             Write-Error "You do not provide a Download Uri. Please use the RDSAppDownloadUri parameter."
         }
-    }    
+    }
+    #endregion Install Software
+    
+    #region create AD Group and add it to DL_RDSUsers
+
+    #endregion create AD Group and add it to DL_RDSUsers
 }
