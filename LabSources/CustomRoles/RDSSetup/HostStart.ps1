@@ -43,6 +43,7 @@ param
 )
 
 Import-Lab -Path $LabPath -NoValidation
+$UserName = (Get-Lab).DefaultInstallationCredential.UserName
 
 switch ($IsAdvancedRDSDeployment)
 {
@@ -146,7 +147,7 @@ switch ($IsAdvancedRDSDeployment)
                 }
             }
 
-        } -Function $module -ArgumentList $RDSDNSName, $AllWAServers
+        } -Function $module -ArgumentList $RDSDNSName, $allGatewayServers
         #endregion DNS Configuration
 
         #region HostsFile
@@ -154,9 +155,9 @@ switch ($IsAdvancedRDSDeployment)
         
         if (-not(Get-HostEntry -Section (Get-Lab).Name -HostName $RDSDNSName))
         {
-            foreach ($WAServer in $AllWAServers)
+            foreach ($GWServer in $allGatewayServers)
             {
-                $IP = $WAServer.IPAddress
+                $IP = $GWServer.IPAddress
                 $null = Add-HostEntry -Section (Get-Lab).Name -IpAddress $IP -HostName $RDSDNSName
             }
         }
@@ -228,6 +229,25 @@ switch ($IsAdvancedRDSDeployment)
                 New-RDSessionDeployment -ConnectionBroker $args[2].DNSHostName -WebAccessServer $args[1].DNSHostName -SessionHost $args[0].DNSHostName 
             } -ArgumentList $AllSessionHostServersForDeployment, $firstwa, $firstcb
             #endregion Create RDS Deployment
+
+            #region Configure Web Access Servers
+            foreach ($WAServer in $AllWAServers)
+            {
+                $WebAccessServerName = $WAServer.ComputerName
+                Invoke-LabCommand -ComputerName $WebAccessServerName -ActivityName ('Add the external DNSName to the Pages Web Site of Server {0}.' -f $WebAccessServerName) -ScriptBlock {
+                    Import-Module WebAdministration
+
+                    $param = @{
+                        PSPath = 'MACHINE/WEBROOT/APPHOST/Default Web Site/RDWeb/Pages' 
+                        Filter = "appSettings/add[@key='DefaultTSGateway']" 
+                        Name   = 'value' 
+                        Value  = $args[0]
+                    }
+
+                    Set-WebConfigurationProperty @param
+                } -NoDisplay -ArgumentList $RDSDNSName
+            }
+            #endregion Configure Web Access Servers
 
             #region Register and Configure GatewayServers
             if ($UseCachedCredentials -eq 'Yes')
@@ -336,6 +356,11 @@ switch ($IsAdvancedRDSDeployment)
                 Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Adding the exported certificate to the RDPublishing Role' -ScriptBlock {
                     Set-RDCertificate -Role RDPublishing -ImportPath C:\Tools\RDS.pfx -Password $args[0] -ConnectionBroker $args[1].DNSHostName -Force
                 } -ArgumentList $mypwd, $firstcb
+
+                Write-ScreenInfo -Message "Adding RootCA Certificate to local Computer."
+                $ALCertFolder = Join-Path -Path $LabPath -ChildPath 'Certificates'
+                $ALCertName = Join-Path -Path $ALCertFolder -ChildPath "$($RootCA.Name).crt"
+                Import-Certificate -FilePath $ALCertName -CertStoreLocation Cert:\LocalMachine\Root
             }
             else
             {
@@ -343,7 +368,7 @@ switch ($IsAdvancedRDSDeployment)
             } 
             #endregion Certificates
 
-            #region Create Domain Local Group for all RDS users
+            #region Create Domain Local Group for all RDS users and add all groups to DL_RDSUsers
             Invoke-LabCommand -ComputerName $rootdcname -ActivityName "Create Domain Local Group for all RDS Users" -ScriptBlock {
                 Import-Module ActiveDirectory
                 $DomainInfo = Get-DomainInformation
@@ -351,11 +376,74 @@ switch ($IsAdvancedRDSDeployment)
                 $OuNameDN = [String]::Concat("OU=RDSGroups,", "OU=RDS,", $DomainDN)
                 New-ADGroup -Name "DL_RDSUsers" -SamAccountName "DL_RDSUsers" -GroupCategory Security -GroupScope DomainLocal -DisplayName "DL_RDSUsers" -Path $OuNameDN
             } -Function $module -NoDisplay
-            #endregion Create Domain Local Group for all RDS users
 
-            #TODO: Add Group to Connection Authorization Policy
+            Invoke-LabCommand -ComputerName $rootdcname -ActivityName "Create Global Group where to put the users in." -ScriptBlock {
+                Import-Module ActiveDirectory
+                $DomainInfo = Get-DomainInformation
+                $DomainDN = $DomainInfo.distinguishedName
+                $OuNameDN = [String]::Concat("OU=RDSGroups,", "OU=RDS,", $DomainDN)
+                New-ADGroup -Name "G_ALUsers" -SamAccountName "G_ALUsers" -GroupCategory Security -GroupScope Global -DisplayName "G_ALUsers" -Path $OuNameDN
+            } -Function $module -NoDisplay
 
-            #TODO: Clean Resource Authorization Policies. Create a Own. Add the Group to the newly created Policy. Network Resource -> Allow users to connect to any network resource
+            Invoke-LabCommand -ComputerName $rootdcname -ActivityName "Add DefaultUser to G_ALUsers." -ScriptBlock {
+                Import-Module ActiveDirectory
+                Add-ADGroupMember -Members $args[0] -Identity 'G_ALUsers'
+            } -ArgumentList $UserName -NoDisplay
+
+            Invoke-LabCommand -ComputerName $rootdcname -ActivityName "Add G_ALUsers to DL_RDSUsers." -ScriptBlock {
+                Import-Module ActiveDirectory
+                Add-ADGroupMember -Members 'G_ALUsers' -Identity 'DL_RDSUsers'
+            } -NoDisplay
+
+            Invoke-LabCommand -ComputerName $rootdcname -ActivityName "Add DL_SBD to DL_RDSUsers." -ScriptBlock {
+                Import-Module ActiveDirectory
+                Add-ADGroupMember -Members 'DL_SBD' -Identity 'DL_RDSUsers'
+            } -NoDisplay
+            #endregion Create Domain Local Group for all RDS users and add all groups to DL_RDSUsers
+
+            #region Add DL_RDSUsers to the Connection Authorization Policy
+            foreach ($GatewayServer in $allGatewayServers)
+            {
+                $GatewayServerName = $GatewayServer.ComputerName
+
+                Invoke-LabCommand -ComputerName $GatewayServerName -ActivityName "Adding the group DL_RDSUsers to the Connection Authorization Policy." -ScriptBlock {
+                    Import-Module RemoteDesktopServices
+                    Import-Module ActiveDirectory
+                    $DomainName = (Get-ADDomain).Name
+                    Set-Location -Path RDS:\GatewayServer\CAP\RDG_CAP_AllUsers
+                    New-Item -Name "DL_RDSUsers@$DomainName" -Path .\UserGroups
+                    Set-Location -Path RDS:\GatewayServer\CAP\RDG_CAP_AllUsers\UserGroups
+                    Remove-Item "Domain Users@$DomainName" -Force
+                }
+            }
+            #endregion Add DL_RDSUsers to the Connection Authorization Policy
+
+            #region Clean Resource Authorization Policies. Create a Own. Add the Group to the newly created Policy. Network Resource -> Allow users to connect to any network resource
+            foreach ($GatewayServer in $allGatewayServers)
+            {
+                $GatewayServerName = $GatewayServer.ComputerName
+
+                Invoke-LabCommand -ComputerName $GatewayServerName -ActivityName "Remove all the Resource Authorization Policies that exists." -ScriptBlock {
+                    Import-Module RemoteDesktopServices
+                    Set-Location -Path RDS:\GatewayServer\RAP
+                    $AllRAP = Get-ChildItem
+                    Remove-Item $AllRAP.Name -Force -Recurse
+                }
+            }
+
+            foreach ($GatewayServer in $allGatewayServers)
+            {
+                $GatewayServerName = $GatewayServer.ComputerName
+
+                Invoke-LabCommand -ComputerName $GatewayServerName -ActivityName "Add Resource Authorization Policy." -ScriptBlock {
+                    Import-Module RemoteDesktopServices
+                    Import-Module ActiveDirectory
+                    $DomainName = (Get-ADDomain).Name
+                    Set-Location -Path RDS:\GatewayServer\RAP
+                    New-Item -Name RDG_AL -UserGroups "DL_RDSUsers@$DomainName" -ComputerGroupType 2
+                }
+            }
+            #endregion Clean Resource Authorization Policies. Create a Own. Add the Group to the newly created Policy. Network Resource -> Allow users to connect to any network resource
 
             #region TODO
             <#if ($ConnectionBrokerHighAvailabilty -eq 'Yes')
