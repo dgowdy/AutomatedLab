@@ -116,52 +116,6 @@ switch ($IsAdvancedRDSDeployment)
         } -Function $module -PassThru -NoDisplay
         #endregion WA and CB Server Retrival
 
-        #region DNS Configuration
-        # Add Dns Zone and IP Adresses of all Connection Broker Servers to it. (Round Robin)
-        Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Creating DNS Zone for RDS deployment' -ScriptBlock {
-            
-            # Calculate Zone Name
-            $dnsZone = $args[0].Substring($args[0].IndexOf('.') + 1)
-            $dnsname = $args[0].Substring(0, $args[0].IndexOf('.'))
-            
-            # Check if DNS Zone exist
-            if (Get-DnsServerZone | Where-Object {$_.ZoneName -eq ('{0}' -f $dnsZone)})
-            {                
-                if (-not (Get-DnsServerResourceRecord -Name $dnsname -ZoneName $dnsZone -ErrorAction SilentlyContinue))
-                {
-                    for ($i = 0; $i -lt $args[1].Count; $i++)
-                    {
-                        $IP = $args[1][$i].IPAddress
-                        Add-DnsServerResourceRecord -ZoneName $dnsZone -IPv4Address $IP  -A -Name $dnsname
-                    } 
-                }              
-            }
-            else
-            {
-                Add-DnsServerPrimaryZone -Name $dnsZone -ReplicationScope Forest
-                
-                for ($i = 0; $i -lt $args[1].Count; $i++)
-                {
-                    $IP = $args[1][$i].IPAddress
-                    Add-DnsServerResourceRecord -ZoneName $dnsZone -IPv4Address $IP -A -Name $dnsname
-                }
-            }
-
-        } -Function $module -ArgumentList $RDSDNSName, $allGatewayServers
-        #endregion DNS Configuration
-
-        #region HostsFile
-        Write-ScreenInfo -Message 'Adding the DNS Domain of the RDS deployment to the hosts file.'
-        
-        if (-not(Get-HostEntry -Section (Get-Lab).Name -HostName $RDSDNSName))
-        {
-            $FirstGW = $allGatewayServers | Select-Object -First 1
-
-            $IP = $FirstGW.IPAddress
-            $null = Add-HostEntry -Section (Get-Lab).Name -IpAddress $IP -HostName $RDSDNSName
-        }
-        #endregion HostsFile
-
         #region Check for active Deployment
         $activeRDSDeployment = $false
         
@@ -223,6 +177,52 @@ switch ($IsAdvancedRDSDeployment)
             $firstcb = $AllCBServers | Select-Object -First 1
             #endregion Server Information
 
+            #region DNS Configuration
+            # Add Dns Zone and IP Adresses of all Connection Broker Servers to it. (Round Robin)
+            Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Creating DNS Zone for RDS deployment' -ScriptBlock {
+            
+                # Calculate Zone Name
+                $dnsZone = $args[0].Substring($args[0].IndexOf('.') + 1)
+                $dnsname = $args[0].Substring(0, $args[0].IndexOf('.'))
+            
+                # Check if DNS Zone exist
+                if (Get-DnsServerZone | Where-Object {$_.ZoneName -eq ('{0}' -f $dnsZone)})
+                {                
+                    if (-not (Get-DnsServerResourceRecord -Name $dnsname -ZoneName $dnsZone -ErrorAction SilentlyContinue))
+                    {
+                        for ($i = 0; $i -lt $args[1].Count; $i++)
+                        {
+                            $IP = $args[1][$i].IPAddress
+                            Add-DnsServerResourceRecord -ZoneName $dnsZone -IPv4Address $IP  -A -Name $dnsname
+                        } 
+                    }              
+                }
+                else
+                {
+                    Add-DnsServerPrimaryZone -Name $dnsZone -ReplicationScope Forest
+                
+                    for ($i = 0; $i -lt $args[1].Count; $i++)
+                    {
+                        $IP = $args[1][$i].IPAddress
+                        Add-DnsServerResourceRecord -ZoneName $dnsZone -IPv4Address $IP -A -Name $dnsname
+                    }
+                }
+
+            } -Function $module -ArgumentList $RDSDNSName, $allGatewayServers
+            #endregion DNS Configuration
+
+            #region HostsFile
+            Write-ScreenInfo -Message 'Adding the DNS Domain of the RDS deployment to the hosts file.'
+        
+            if (-not(Get-HostEntry -Section (Get-Lab).Name -HostName $RDSDNSName))
+            {
+                $FirstGW = $allGatewayServers | Select-Object -First 1
+
+                $IP = $FirstGW.IPAddress
+                $null = Add-HostEntry -Section (Get-Lab).Name -IpAddress $IP -HostName $RDSDNSName
+            }
+            #endregion HostsFile
+
             #region Create RDS Deployment
             Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Create New RDS Deployment' -ScriptBlock {
                 New-RDSessionDeployment -ConnectionBroker $args[2].DNSHostName -WebAccessServer $args[1].DNSHostName -SessionHost $args[0].DNSHostName 
@@ -252,20 +252,20 @@ switch ($IsAdvancedRDSDeployment)
             #region Register and Configure GatewayServers
             if ($UseCachedCredentials -eq 'Yes')
             {
-                $UseCachedCredentials = $true 
+                $UseCachedCredentials_choice = $true 
             } 
             else
             {
-                $UseCachedCredentials = $false
+                $UseCachedCredentials_choice = $false
             }
 
             if ($ByPassLocal -eq 'Yes')
             {
-                $ByPassLocal = $true
+                $ByPassLocal_choice = $true
             }
             else
             {
-                $ByPassLocal = $false             
+                $ByPassLocal_choice = $false             
             }            
 
             foreach ($GatewayServer in $allGatewayServers)
@@ -296,7 +296,7 @@ switch ($IsAdvancedRDSDeployment)
                     }
                     
                     Set-RDDeploymentGatewayConfiguration @param
-                } -ArgumentList $firstcb, $LogOnMethod, $GatewayMode, $UseCachedCredentials, $ByPassLocal, $RDSDNSName
+                } -ArgumentList $firstcb, $LogOnMethod, $GatewayMode, $UseCachedCredentials_choice, $ByPassLocal_choice, $RDSDNSName
 
                 Invoke-LabCommand -ComputerName $GatewayServerName -ActivityName ('Adding {0} to the GatewayFarm' -f $GatewayServerName) -ScriptBlock {
                     Import-Module RemoteDesktopServices

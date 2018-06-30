@@ -79,23 +79,59 @@ switch ($IsAdvancedRDSDeployment)
         {
             if ($PSBoundParameters.ContainsKey('RoamingProfilePath'))
             {
-                Invoke-LabCommand -ComputerName $FileserverName -ActivityName 'Create Roaming Profile Path' -ScriptBlock {
-                    New-Item -Path $args[0] -ItemType Directory -Force
+                $result = Invoke-LabCommand -ComputerName $FileserverName -ActivityName "Check if Roaming Profile Path exists" -ScriptBlock {
+                    if (Test-Path -Path $args[0] -ErrorAction SilentlyContinue)
+                    {
+                        return $true
+                    }
+                    else
+                    {
+                        return $false
+                    }
                 } -ArgumentList $RoamingProfilePath
                 
-                Invoke-LabCommand -ComputerName $FileserverName -ActivityName 'Share Roaming Profile Path to everyone' -ScriptBlock {
-                    New-SmbShare -Path $args[0] -Name "RoamingProfiles$" -FullAccess Everyone -Description 'Roaming Profile Path for RDS deployment.'
-                } -ArgumentList $RoamingProfilePath
+                if ($result -eq $false)
+                {
+                    Invoke-LabCommand -ComputerName $FileserverName -ActivityName 'Create Roaming Profile Path' -ScriptBlock {
+                        New-Item -Path $args[0] -ItemType Directory -Force
+                    } -ArgumentList $RoamingProfilePath
+                
+                    Invoke-LabCommand -ComputerName $FileserverName -ActivityName 'Share Roaming Profile Path to everyone' -ScriptBlock {
+                        New-SmbShare -Path $args[0] -Name "RoamingProfiles$" -FullAccess Everyone -Description 'Roaming Profile Path for RDS deployment.'
+                    } -ArgumentList $RoamingProfilePath
+                }
+                else
+                {
+                    Write-ScreenInfo -Message "RoamingProfiles$ exists already."
+                }
 
                 if ($HasSessionBasedDesktop -eq 'Yes')
                 {
-                    Invoke-LabCommand -ComputerName $FileserverName -ActivityName 'Create Roaming Profile Path for Session Based Desktop' -ScriptBlock {
-                        New-Item -Path $args[0] -ItemType Directory -Force
+                    $result = Invoke-LabCommand -ComputerName $FileserverName -ActivityName "Check if SB Roaming Profile Path exists" -ScriptBlock {
+                        if (Test-Path -Path $args[0] -ErrorAction SilentlyContinue)
+                        {
+                            return $true
+                        }
+                        else
+                        {
+                            return $false
+                        }
                     } -ArgumentList $SessionBasedDesktopRoamingProfilePath
+                    
+                    if ($result -eq $false)
+                    {
+                        Invoke-LabCommand -ComputerName $FileserverName -ActivityName 'Create Roaming Profile Path for Session Based Desktop' -ScriptBlock {
+                            New-Item -Path $args[0] -ItemType Directory -Force
+                        } -ArgumentList $SessionBasedDesktopRoamingProfilePath
                 
-                    Invoke-LabCommand -ComputerName $FileserverName -ActivityName 'Share Roaming Profile Path for Session Based Desktop to everyone' -ScriptBlock {
-                        New-SmbShare -Path $args[0] -Name "SBRoamingProfiles$" -FullAccess Everyone -Description 'Roaming Profile Path for RDS deployment.'
-                    } -ArgumentList $SessionBasedDesktopRoamingProfilePath
+                        Invoke-LabCommand -ComputerName $FileserverName -ActivityName 'Share Roaming Profile Path for Session Based Desktop to everyone' -ScriptBlock {
+                            New-SmbShare -Path $args[0] -Name "SBRoamingProfiles$" -FullAccess Everyone -Description 'Roaming Profile Path for RDS deployment.'                      
+                        } -ArgumentList $SessionBasedDesktopRoamingProfilePath
+                    }
+                    else
+                    {
+                        Write-ScreenInfo -Message "SBRoamingProfiles$ exists already."
+                    }
                 }                
             }
         }
@@ -104,23 +140,59 @@ switch ($IsAdvancedRDSDeployment)
         {
             if ($PSBoundParameters.ContainsKey('UserProfileDiskPath'))
             {
-                Invoke-LabCommand -ComputerName $FileserverName -ActivityName 'Create User Profile Disk Path' -ScriptBlock {
-                    New-Item -Path $args[0] -ItemType Directory -Force
+                $result = Invoke-LabCommand -ComputerName $FileserverName -ActivityName "Check if User Profile Disk Path exists" -ScriptBlock {
+                    if (Test-Path -Path $args[0])
+                    {
+                        return $true
+                    }
+                    else
+                    {
+                        return $false
+                    }
                 } -ArgumentList $UserProfileDiskPath
-                
-                Invoke-LabCommand -ComputerName $FileserverName -ActivityName 'Share User Profile Disk Path to everyone' -ScriptBlock {
-                    New-SmbShare -Path $args[0] -Name "UserProfileDisks$" -FullAccess Everyone -Description 'User Profile Disk Path for RDS deployment.'
-                } -ArgumentList $UserProfileDiskPath
-
-                if ($HasSessionBasedDesktop -eq 'Yes')
+               
+                if ($result -eq $false)
                 {
                     Invoke-LabCommand -ComputerName $FileserverName -ActivityName 'Create User Profile Disk Path' -ScriptBlock {
                         New-Item -Path $args[0] -ItemType Directory -Force
-                    } -ArgumentList $SessionBasedDesktopUserProfileDiskPath
+                    } -ArgumentList $UserProfileDiskPath
                 
                     Invoke-LabCommand -ComputerName $FileserverName -ActivityName 'Share User Profile Disk Path to everyone' -ScriptBlock {
-                        New-SmbShare -Path $args[0] -Name "SBUserProfileDisks$" -FullAccess Everyone -Description 'User Profile Disk Path for RDS deployment.'
+                        New-SmbShare -Path $args[0] -Name "UserProfileDisks$" -FullAccess Everyone -Description 'User Profile Disk Path for RDS deployment.'
+                    } -ArgumentList $UserProfileDiskPath
+                }
+                else
+                {
+                    Write-ScreenInfo -Message "UserProfileDisks$ exists already."
+                }                
+
+                if ($HasSessionBasedDesktop -eq 'Yes')
+                {
+                    $result = Invoke-LabCommand -ComputerName $FileserverName -ActivityName "Check if SB User Profile Disk Path exists" -ScriptBlock {
+                        if (Test-Path -Path $args[0])
+                        {
+                            return $true
+                        }
+                        else
+                        {
+                            return $false
+                        }
                     } -ArgumentList $SessionBasedDesktopUserProfileDiskPath
+                    
+                    if ($result -eq $false)
+                    {
+                        Invoke-LabCommand -ComputerName $FileserverName -ActivityName 'Create User Profile Disk Path' -ScriptBlock {
+                            New-Item -Path $args[0] -ItemType Directory -Force
+                        } -ArgumentList $SessionBasedDesktopUserProfileDiskPath
+                
+                        Invoke-LabCommand -ComputerName $FileserverName -ActivityName 'Share User Profile Disk Path to everyone' -ScriptBlock {
+                            New-SmbShare -Path $args[0] -Name "SBUserProfileDisks$" -FullAccess Everyone -Description 'User Profile Disk Path for RDS deployment.'
+                        } -ArgumentList $SessionBasedDesktopUserProfileDiskPath
+                    }
+                    else
+                    {
+                        Write-ScreenInfo -Message "SBUserProfileDisks$ exists already."
+                    }                   
                 }
             }
         }

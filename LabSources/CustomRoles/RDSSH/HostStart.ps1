@@ -37,6 +37,15 @@ switch ($IsAdvancedRDSDeployment)
             if ($args[0] -eq 'Yes')
             {
                 $targetpath = [String]::Concat("OU=RDSBD,OU=RDS,", $dn)
+                $OuNameDN = [String]::Concat("OU=RDSGroups,", "OU=RDS,", $dn)
+                try
+                {
+                    Get-ADGroup -Identity "DL_SBD"
+                }
+                catch
+                {
+                    New-ADGroup -Name "DL_SBD" -SamAccountName "DL_SBD" -GroupCategory Security -GroupScope DomainLocal -DisplayName "DL_SBD" -Path $OuNameDN
+                }                
             }
             else
             {
