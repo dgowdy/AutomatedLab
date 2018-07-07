@@ -197,18 +197,7 @@ switch ($IsAdvancedRDSDeployment)
                             $IP = $args[1][$i].IPAddress
                             Add-DnsServerResourceRecord -ZoneName $dnsZone -IPv4Address $IP  -A -Name $dnsname
                         } 
-                    }
-                    
-                    $countCBServers = ($args[2] | Measure-Object).Count
-                    $internaldnsname = [String]::Concat("rdsbroker.", $dnsZone)
-                    for ($i = 0; $i -lt $countCBServers; $i++)
-                    {
-                        $IP = $args[2][$i].IPAddress
-                        if (Get-DnsServerResourceRecord -ZoneName $dnsZone | Where-Object {$_.RecordType -eq "A" -and $_.RecordData -eq $IP} -eq $null)
-                        {
-                            Add-DnsServerResourceRecord -ZoneName $dnsZone -IPv4Address $IP -A -Name $internaldnsname    
-                        }                        
-                    }
+                    }              
                 }
                 else
                 {
@@ -220,12 +209,40 @@ switch ($IsAdvancedRDSDeployment)
                         $IP = $args[1][$i].IPAddress
                         Add-DnsServerResourceRecord -ZoneName $dnsZone -IPv4Address $IP -A -Name $dnsname
                     }
-                
-                    $countCBServers = ($args[2] | Measure-Object).Count
+                }
+
+            } -ArgumentList $RDSDNSName, $allGatewayServers
+
+            Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Adding all Connection Broker Servers to DNS Zone for RDS deployment' -ScriptBlock {
+            
+                Import-Module DNSServer
+                # Calculate Zone Name
+                $dnsZone = $args[0].Substring($args[0].IndexOf('.') + 1)
+                #$dnsname = $args[0].Substring(0, $args[0].IndexOf('.'))
+            
+                # Check if DNS Zone exist
+                if (Get-DnsServerZone | Where-Object {$_.ZoneName -eq ('{0}' -f $dnsZone)})
+                {                
+                    $countCBServers = ($args[1] | Measure-Object).Count
                     $internaldnsname = [String]::Concat("rdsbroker.", $dnsZone)
                     for ($i = 0; $i -lt $countCBServers; $i++)
                     {
-                        $IP = $args[2][$i].IPAddress
+                        $IP = $args[1][$i].IPAddress
+                        if (Get-DnsServerResourceRecord -ZoneName $dnsZone | Where-Object {$_.RecordType -eq "A" -and $_.RecordData -eq $IP} -eq $null)
+                        {
+                            Add-DnsServerResourceRecord -ZoneName $dnsZone -IPv4Address $IP -A -Name $internaldnsname    
+                        }                        
+                    }
+                }
+                else
+                {
+                    Add-DnsServerPrimaryZone -Name $dnsZone -ReplicationScope Forest
+                
+                    $countCBServers = ($args[1] | Measure-Object).Count
+                    $internaldnsname = [String]::Concat("rdsbroker.", $dnsZone)
+                    for ($i = 0; $i -lt $countCBServers; $i++)
+                    {
+                        $IP = $args[1][$i].IPAddress
                         if (Get-DnsServerResourceRecord -ZoneName $dnsZone | Where-Object {$_.RecordType -eq "A" -and $_.RecordData -eq $IP} -eq $null)
                         {
                             Add-DnsServerResourceRecord -ZoneName $dnsZone -IPv4Address $IP -A -Name $internaldnsname    
@@ -233,7 +250,7 @@ switch ($IsAdvancedRDSDeployment)
                     }
                 }
 
-            } -ArgumentList $RDSDNSName, $allGatewayServers, $AllCBServers
+            } -ArgumentList $RDSDNSName, $AllCBServers
             #endregion DNS Configuration
 
             #region HostsFile
