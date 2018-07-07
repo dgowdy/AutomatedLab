@@ -181,6 +181,7 @@ switch ($IsAdvancedRDSDeployment)
             # Add Dns Zone and IP Adresses of all Connection Broker Servers to it. (Round Robin)
             Invoke-LabCommand -ComputerName $rootdcname -ActivityName 'Creating DNS Zone for RDS deployment' -ScriptBlock {
             
+                Import-Module DNSServer
                 # Calculate Zone Name
                 $dnsZone = $args[0].Substring($args[0].IndexOf('.') + 1)
                 $dnsname = $args[0].Substring(0, $args[0].IndexOf('.'))
@@ -190,7 +191,8 @@ switch ($IsAdvancedRDSDeployment)
                 {                
                     if (-not (Get-DnsServerResourceRecord -Name $dnsname -ZoneName $dnsZone -ErrorAction SilentlyContinue))
                     {
-                        for ($i = 0; $i -lt $args[1].Count; $i++)
+                        $countGatewayServers = ($args[1] | Measure-Object).Count
+                        for ($i = 0; $i -lt $countGatewayServers; $i++)
                         {
                             $IP = $args[1][$i].IPAddress
                             Add-DnsServerResourceRecord -ZoneName $dnsZone -IPv4Address $IP  -A -Name $dnsname
@@ -201,14 +203,15 @@ switch ($IsAdvancedRDSDeployment)
                 {
                     Add-DnsServerPrimaryZone -Name $dnsZone -ReplicationScope Forest
                 
-                    for ($i = 0; $i -lt $args[1].Count; $i++)
+                    $countGatewayServers = ($args[1] | Measure-Object).Count
+                    for ($i = 0; $i -lt $countGatewayServers; $i++)
                     {
                         $IP = $args[1][$i].IPAddress
                         Add-DnsServerResourceRecord -ZoneName $dnsZone -IPv4Address $IP -A -Name $dnsname
                     }
                 }
 
-            } -Function $module -ArgumentList $RDSDNSName, $allGatewayServers
+            } -ArgumentList $RDSDNSName, $allGatewayServers
             #endregion DNS Configuration
 
             #region HostsFile
