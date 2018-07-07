@@ -485,38 +485,7 @@ switch ($IsAdvancedRDSDeployment)
                     New-Item -Name RDG_AL -UserGroups "DL_RDSUsers@$DomainName" -ComputerGroupType 2
                 }
             }
-            #endregion Clean Resource Authorization Policies. Create a Own. Add the Group to the newly created Policy. Network Resource -> Allow users to connect to any network resource
-
-            #region TODO
-            <#if ($ConnectionBrokerHighAvailabilty -eq 'Yes')
-            {
-                #Is SQL Server in Lab Deployment ?
-                $ISQLServer = Get-LabVM | Where-Object {$_.Roles -like "SQLServer*"}
-
-                if (-not ($ISQLServer))
-                {
-                    throw "No SQL Server found in Lab. Please add one."
-                }
-                else
-                {
-                    Write-ScreenInfo -Message 'SQL Server Machine was found in Lab Deployment. Continue with deployment.'
-                }
-
-                $restcb = $AllCBServers | Select-Object -Skip 1
-                $firstcb = $AllCBServers | Select-Object -First 1
-
-                foreach ($CBServer in $restcb)
-                {                    
-                    $i = 1
-
-                    Invoke-LabCommand -ComputerName $rootdcname -ActivityName "Adding $i additional Connection Broker Server." -ScriptBlock {
-                        Add-RDServer -Server $args[0] -Role 'RDS-CONNECTION-BROKER' -ConnectionBroker $args[1]
-                    } -ArgumentList $CBServer, $firstcb
-                }
-
-                #TODO: Configure HA for Connection Broker
-            }#>
-            #endregion TODO            
+            #endregion Clean Resource Authorization Policies. Create a Own. Add the Group to the newly created Policy. Network Resource -> Allow users to connect to any network resource      
         }     
 
         #region Remove ServerManager from Autostart
