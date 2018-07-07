@@ -32,6 +32,10 @@ function New-LabRDSCollection
         [switch]
         $IsSessionBasedDesktopCollection,
 
+        [Parameter(Mandatory, ParameterSetName = 'IsSessionBasedDesktop')]
+        [string]
+        $CollectionADGroupName,
+
         [Parameter(Mandatory, ParameterSetName = 'UserProfileDisk')]
         [Parameter(Mandatory, ParameterSetName = 'IsSessionBasedDesktop')]
         [switch]
@@ -85,18 +89,41 @@ function New-LabRDSCollection
             {
                 if ($PSBoundParameters.ContainsKey('UseUserProfileDisks'))
                 {
-                    Set-LabRDSCollection -RDSCollectionName $RDSCollectionName -RDSConnectionBroker $RDSConnectionBroker -IsSessionBasedDesktop -UseUserProfileDisks -MaxUserProfileDiskSizeGB $MaxUserProfileDiskSizeGB -UserProfileDiskPath $UserProfileDiskPath
+                    $setLabRDSCollectionSplat = @{
+                        IsSessionBasedDesktopCollection = $true
+                        MaxUserProfileDiskSizeGB        = $MaxUserProfileDiskSizeGB
+                        UserProfileDiskPath             = $UserProfileDiskPath
+                        CollectionADGroupName           = $CollectionADGroupName
+                        UseUserProfileDisks             = $true
+                        RDSConnectionBroker             = $RDSConnectionBroker
+                        RDSCollectionName               = $RDSCollectionName
+                    }
+                    Set-LabRDSCollection @setLabRDSCollectionSplat
                 }
                 else
                 {
-                    Set-LabRDSCollection -RDSCollectionName $RDSCollectionName -RDSConnectionBroker $RDSConnectionBroker -IsSessionBasedDesktop   
+                    $setLabRDSCollectionSplat = @{
+                        RDSCollectionName               = $RDSCollectionName
+                        CollectionADGroupName           = $CollectionADGroupName
+                        RDSConnectionBroker             = $RDSConnectionBroker
+                        IsSessionBasedDesktopCollection = $true
+                    }
+                    Set-LabRDSCollection @setLabRDSCollectionSplat   
                 }
                 
             }
 
             'UserProfileDisk'
             {
-                Set-LabRDSCollection -RDSCollectionName $RDSCollectionName -RDSConnectionBroker $RDSConnectionBroker -UseUserProfileDisks -MaxUserProfileDiskSizeGB $MaxUserProfileDiskSizeGB -UserProfileDiskPath $UserProfileDiskPath -IsAppCollection
+                $setLabRDSCollectionSplat = @{
+                    MaxUserProfileDiskSizeGB = $MaxUserProfileDiskSizeGB
+                    UserProfileDiskPath      = $UserProfileDiskPath
+                    UseUserProfileDisks      = $true
+                    RDSConnectionBroker      = $RDSConnectionBroker
+                    RDSCollectionName        = $RDSCollectionName
+                    IsAppCollection          = $true
+                }
+                Set-LabRDSCollection @setLabRDSCollectionSplat
             }
         }        
     }
@@ -130,6 +157,10 @@ function Set-LabRDSCollection
         [switch]
         $IsSessionBasedDesktopCollection,
 
+        [Parameter(Mandatory, ParameterSetName = 'IsSessionBasedDesktop')]
+        [string]
+        $CollectionADGroupName,
+
         [Parameter(Mandatory, ParameterSetName = 'UserProfileDisk')]
         [Parameter(Mandatory, ParameterSetName = 'IsSessionBasedDesktop')]
         [switch]
@@ -152,16 +183,38 @@ function Set-LabRDSCollection
         {
             if ($PSBoundParameters.ContainsKey('UseUserProfileDisks'))
             {
-                Invoke-LabCommand -ComputerName $RDSConnectionBroker -ActivityName "Creating Domain Local Group DL_SBD for Collection $RDSCollectionName" -ScriptBlock {
-                    Import-Module ActiveDirectory
-                    $RDSGroupsDN = (Get-ADOrganizationalUnit -Filter "Name -eq 'RDSGroups'").DistinguishedName
-                    New-ADGroup -Name "DL_SBD" -SamAccountName "DL_SBD" -GroupCategory Security -GroupScope DomainLocal -DisplayName "DL_SBD" -Path $RDSGroupsDN
+                $restult_Groupexists = Invoke-LabCommand -ComputerName $RDSConnectionBroker -ActivityName "Check if Group $CollectionADGroupName exists" -ScriptBlock {
+                    try
+                    {
+                        $null = Get-ADGroup -Identity $args[0]
+                        return $true
+                    }
+                    catch
+                    {
+                        return $false
+                    }
+                } -ArgumentList $CollectionADGroupName
+                
+                if ($restult_Groupexists -eq $false)
+                {
+                    Invoke-LabCommand -ComputerName $RDSConnectionBroker -ActivityName "Creating Domain Local Group $CollectionADGroupName for Collection $RDSCollectionName" -ScriptBlock {
+                        Import-Module ActiveDirectory
+                        $RDSGroupsDN = (Get-ADOrganizationalUnit -Filter "Name -eq 'RDSGroups'").DistinguishedName
+                        try
+                        {
+                            Get-ADGroup -Identity $args[0]
+                        }
+                        catch
+                        {
+                            New-ADGroup -Name $args[0] -SamAccountName $args[0] -GroupCategory Security -GroupScope DomainLocal -DisplayName $args[0] -Path $RDSGroupsDN    
+                        }                    
+                    } -ArgumentList $CollectionADGroupName    
                 }
 
-                Invoke-LabCommand -ComputerName $RDSConnectionBroker -ActivityName "Set the Usergroup DL_SBD on Colletion $RDSCollectionName" -ScriptBlock {
+                Invoke-LabCommand -ComputerName $RDSConnectionBroker -ActivityName "Set the Usergroup $CollectionADGroupName on Colletion $RDSCollectionName" -ScriptBlock {
                     Import-Module RemoteDesktopServices
-                    Set-RDSessionCollectionConfiguration -CollectionName $args[0] -UserGroup "DL_SBD"
-                } -ArgumentList $RDSCollectionName
+                    Set-RDSessionCollectionConfiguration -CollectionName $args[0] -UserGroup $args[1]
+                } -ArgumentList $RDSCollectionName, $CollectionADGroupName
 
                 Invoke-LabCommand -ComputerName $RDSConnectionBroker -ActivityName "Enable UserProfileDisks on Collection $RDSCollectionName." -ScriptBlock {
                     Import-Module RemoteDesktopServices
