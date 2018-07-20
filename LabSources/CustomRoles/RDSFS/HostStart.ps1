@@ -17,7 +17,7 @@ param
     [String]
     $RoamingProfilePath,
 
-    [Parameter(Mandatory = $false, ParameterSetName = 'UserProfileDisks')]
+    [Parameter(Mandatory = $false, ParameterSetName = 'RoamingProfile')]
     [String]
     $SessionBasedDesktopRoamingProfilePath,
 
