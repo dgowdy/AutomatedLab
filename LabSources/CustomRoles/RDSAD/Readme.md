@@ -1,9 +1,9 @@
 # RDS Domain Structure
 
 # Definition of the parameters
-- IsAdvancedRDSDeployment: ('Yes', 'No')
-    ConnectionBrokerHighAvailabilty = 'Yes'
-    LabPath                         = $labPath
+- IsAdvancedRDSDeployment: ('Yes', 'No') You can deploy RDS in 2 ways: Simple and Advanced. This is what you declare here.
+- ConnectionBrokerHighAvailabilty:  ('Yes', 'No')
+- LabPath: The Path where the LabXML Files are
 
 # Defining the role
 
